@@ -56,6 +56,7 @@ func broadcaster() {
 //Joins the client to the generated ID
 func ReceiveFileRequestHandler(w http.ResponseWriter, r *http.Request) {
 	roomID := r.URL.Query().Get("roomID")
+	log.Println(roomID)
 	if roomID == "" {
 		log.Println("roomID missing in URL Parameter")
 		return
@@ -78,6 +79,8 @@ func ReceiveFileRequestHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		msg.Client = ws
 		msg.RoomID = roomID
+
+		log.Println(msg.Message)
 
 		broadcast <- msg
 	}
