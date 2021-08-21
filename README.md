@@ -10,7 +10,7 @@ I use drive too much to share files between my phone and PC to share files for p
 - [ ] Create Backend with Golang
   - [ ] Go through basics of Go
   - [ ] Learn about WebRTC
-  - [ ] Implement WebRTC in Go
+  - [ ] Implement Signalling server using websockets in Go
   - [ ] Create necessary endpoints
   - [ ] Added necessary security
   - [ ] Create random connection ID or user-given ID as endpoints
