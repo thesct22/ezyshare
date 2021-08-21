@@ -7,8 +7,11 @@ import (
 )
 
 func main() {
-	http.Handle("/send", server.SendFileRequestHandler)
-	http.Handle("/recv", server.ReceiveFileRequestHandler)
+
+	server.AllRooms.Init()
+
+	http.HandleFunc("/send", server.SendFileRequestHandler)
+	http.HandleFunc("/recv", server.ReceiveFileRequestHandler)
 
 	log.Println("Starting server on port 8000")
 	err := http.ListenAndServe(":8000", nil)
