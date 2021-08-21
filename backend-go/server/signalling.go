@@ -17,6 +17,8 @@ func SendFileRequestHandler(w http.ResponseWriter, f *http.Request) {
 	type resp struct {
 		RoomID string `json:"room_id"`
 	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	json.NewEncoder(w).Encode(resp{RoomID: roomID})
 }
 
@@ -58,7 +60,8 @@ func ReceiveFileRequestHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println("roomID missing in URL Parameter")
 		return
 	}
-
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Fatal("Websocket Upgrade Error: ", err)
