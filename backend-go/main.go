@@ -10,8 +10,9 @@ func main() {
 
 	server.AllRooms.Init()
 
-	http.HandleFunc("/send", server.SendFileRequestHandler)
+	http.HandleFunc("/make", server.MakeLinkRequestHandler)
 	http.HandleFunc("/recv", server.ReceiveFileRequestHandler)
+	http.HandleFunc("/send", server.SendFileRequestHandler)
 
 	log.Println("Starting server on port 8000")
 	err := http.ListenAndServe(":8000", nil)

@@ -60,6 +60,7 @@ func (r *RoomMap) InsertIntoRoom(roomID string, host bool, conn *websocket.Conn)
 
 	log.Println("Inserting into room with RoomID: ", roomID)
 	r.Map[roomID] = append(r.Map[roomID], p)
+	log.Println(r)
 }
 
 func (r *RoomMap) DeleteRoom(roomID string) {

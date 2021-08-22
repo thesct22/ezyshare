@@ -12,12 +12,11 @@ import (
 var AllRooms RoomMap
 
 //Create a room and returns a ID and returns it
-func SendFileRequestHandler(w http.ResponseWriter, f *http.Request) {
+func MakeLinkRequestHandler(w http.ResponseWriter, f *http.Request) {
 	roomID := AllRooms.CreateRoom()
 	type resp struct {
 		RoomID string `json:"room_id"`
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	json.NewEncoder(w).Encode(resp{RoomID: roomID})
 }
@@ -49,6 +48,14 @@ func broadcaster() {
 					client.Conn.Close()
 				}
 			}
+			if !client.Host {
+				err := client.Conn.WriteJSON("added-recv")
+
+				if err != nil {
+					log.Fatal(err)
+					client.Conn.Close()
+				}
+			}
 		}
 	}
 }
@@ -61,13 +68,44 @@ func ReceiveFileRequestHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println("roomID missing in URL Parameter")
 		return
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Fatal("Websocket Upgrade Error: ", err)
 	}
 	AllRooms.InsertIntoRoom(roomID, false, ws)
+
+	go broadcaster()
+
+	for {
+		var msg broadcastMessage
+		err := ws.ReadJSON((&msg.Message))
+		if err != nil {
+			log.Fatal(err)
+		}
+		msg.Client = ws
+		msg.RoomID = roomID
+
+		log.Println(msg.Message)
+
+		broadcast <- msg
+	}
+}
+
+func SendFileRequestHandler(w http.ResponseWriter, r *http.Request) {
+	roomID := r.URL.Query().Get("roomID")
+	log.Println(roomID)
+	if roomID == "" {
+		log.Println("roomID missing in URL Parameter")
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	ws, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Fatal("Websocket Upgrade Error: ", err)
+	}
+	AllRooms.InsertIntoRoom(roomID, true, ws)
 
 	go broadcaster()
 

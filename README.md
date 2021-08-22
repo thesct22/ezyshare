@@ -7,11 +7,11 @@ I use drive too much to share files between my phone and PC to share files for p
 
 - [x] Create Repo 
 - [ ] Make a good Readme
-- [ ] Create Backend with Golang
-  - [ ] Go through basics of Go
-  - [ ] Learn about WebRTC
-  - [ ] Implement Signalling server using websockets in Go
-  - [ ] Create necessary endpoints
+- [x] Create Backend with Golang
+  - [x] Go through basics of Go
+  - [x] Learn about WebRTC
+  - [x] Implement Signalling server using websockets in Go
+  - [x] Create necessary endpoints
   - [ ] Added necessary security
   - [ ] Create random connection ID or user-given ID as endpoints
   - [ ] Make sure everything is working fine
@@ -38,4 +38,6 @@ I use drive too much to share files between my phone and PC to share files for p
   - [ ] Provision sharing options
   - [ ] Add QR code generator and scanner for the links
 - [ ] Add additional encryption to the files being shared.
+- [ ] Clean up the code
+- [ ] Add a lot of USEFUL comments
   
