@@ -76,9 +76,12 @@ const Send = (props) => {
         peerRef.current = createPeer();
         if(fileToSend.current!==undefined){
           console.log("sentfile")
+          webSocketRef.current.send(
+            JSON.stringify({filename:fileToSend.current.name,filetype:fileToSend.current.type,filesize:fileToSend.current.size})
+        );
           //console.log(fileToSend)
 
-          var labelToSend=fileToSend.current.name+"...."+fileToSend.current.type+"...."+fileToSend.current.size
+          var labelToSend=fileToSend.current.name
           const chunkSize = 16384;
           var channel=peerRef.current.createDataChannel(labelToSend,{maxRetransmits:4,});
           channel.onopen = function(event) {

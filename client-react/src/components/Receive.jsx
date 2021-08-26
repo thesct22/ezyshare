@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import concatArrayBuffers from "./joinArrayBuffer";
 
 const Receive = (props) => {
     let sentfile = useRef();
@@ -7,6 +8,9 @@ const Receive = (props) => {
 
     var [linkEnabled,setLinkEnabled]=useState(false)
     var [linkName, setLinkName]=useState(<p>Name of file will appear here once it is downloaded</p>)
+    var [fileName,setFileName]=useState("")
+    var [fileType,setFileType]=useState("")
+    var [fileSize,setFileSize]=useState(0)
 
     useEffect(()=>{
         webSocketRef.current = new WebSocket(`ws://192.168.18.19:8000/recv?roomID=${props.match.params.roomID}`);
@@ -23,6 +27,15 @@ const Receive = (props) => {
 
 				if (message.offer) {
                     handleOffer(message.offer);
+                }
+                if(message.filename){
+                    setFileName(message.filename)
+                } 
+                if(message.filetype){
+                    setFileType(message.filetype)
+                } 
+                if(message.filesize){
+                    setFileSize(message.filesize)
                 }
 
                 if (message.answer) {
@@ -107,16 +120,16 @@ const Receive = (props) => {
     const handleTrackEvent = async (e) => {
         
         var channel = e.channel;
-        const [name,type,size] = channel.label.split('....');
+        //const [name,type,size] = channel.label.split('....');
         const chunkSize = 16384;
         var data=new ArrayBuffer()
         channel.onmessage = async(event) =>{
-            data=event.data
-            console.log(data.byteLength)
+            data=concatArrayBuffers(data,event.data)
+            //console.log(data.byteLength)
             //console.log(Number(size))
-            if(data.byteLength===Number(size)){
-                var url=await arrayBufferToBase64(data,type,name)
-                setLinkName(<a href={url} download={name}>{name}</a>)
+            if(fileSize!==0&&fileName!==""&&fileType!==""&&data.byteLength===fileSize){
+                var url=await arrayBufferToBase64(data,fileType,fileName)
+                setLinkName(<a href={url} download={fileName}>{fileName}</a>)
                 console.log(data)
             }
         }
@@ -126,7 +139,7 @@ const Receive = (props) => {
     };
 
 
-    var arrayBufferToBase64=async(Arraybuffer, Filetype, fileName) =>{
+    var arrayBufferToBase64=async(Arraybuffer, Filetype, filename) =>{
         let binary = '';
         const bytes = new Uint8Array(Arraybuffer);
         const len = bytes.byteLength;
@@ -138,7 +151,7 @@ const Receive = (props) => {
         const url = `data:${mimType};base64,` + file;
         console.log(url)
         
-        setLinkName(<a href={url} download={fileName}>{fileName}</a>)
+        setLinkName(<a href={url} download={filename}>{filename}</a>)
         return url
       }
 
