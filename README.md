@@ -19,11 +19,11 @@ I use drive too much to share files between my phone and PC to share files for p
 - [ ] Work on Frontend using ReactJS
   - [ ] Use Material design
   - [ ] Implement night mode
-  - [ ] Create reuqired links to endpoint APIs of backend
-  - [ ] Implement WebRTC
-  - [ ] Make upload portal
-  - [ ] Make download portal
-  - [ ] Create page for Unique ID Creation
+  - [x] Create reuqired links to endpoint APIs of backend
+  - [x] Implement WebRTC
+  - [x] Make upload portal
+  - [x] Make download portal
+  - [x] Create page for Unique ID Creation
   - [ ] Link sharing through text, mail or other sharing methods
   - [ ] Link sharing with QR code scanner
   - [ ] Make sure everything is working
