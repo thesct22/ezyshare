@@ -63,6 +63,34 @@ func (r *RoomMap) InsertIntoRoom(roomID string, host bool, conn *websocket.Conn)
 	log.Println(r)
 }
 
+func (r *RoomMap) DeleteFromRoom(roomID string, host bool, conn *websocket.Conn) {
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
+
+	var newmap []Participant
+
+	for _, v := range r.Map[roomID] {
+		if v.Conn == conn || !v.Host {
+			newmap = append(newmap, v)
+		}
+	}
+	r.Map[roomID] = newmap
+}
+
+func (r *RoomMap) DeleteThisFromRoom(roomID string, conn *websocket.Conn) {
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
+
+	var newmap []Participant
+
+	for _, v := range r.Map[roomID] {
+		if v.Conn != conn {
+			newmap = append(newmap, v)
+		}
+	}
+	r.Map[roomID] = newmap
+}
+
 func (r *RoomMap) DeleteRoom(roomID string) {
 	r.Mutex.Lock()
 	defer r.Mutex.Unlock()

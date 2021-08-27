@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -44,16 +45,22 @@ func broadcaster() {
 				err := client.Conn.WriteJSON(msg.Message)
 
 				if err != nil {
-					log.Fatal(err)
-					client.Conn.Close()
+					fmt.Println("Hello there12")
+					AllRooms.DeleteThisFromRoom(msg.RoomID, client.Conn)
+					//log.Println(err)
+					//log.Println(client)
+					//log.Println(msg)
+					//client.Conn.Close()
 				}
 			}
 			if !client.Host {
 				err := client.Conn.WriteJSON("added-recv")
 
 				if err != nil {
-					log.Fatal(err)
-					client.Conn.Close()
+					AllRooms.DeleteThisFromRoom(msg.RoomID, client.Conn)
+					fmt.Println("Hello there13")
+					//log.Fatal(err)
+					//client.Conn.Close()
 				}
 			}
 		}
@@ -73,6 +80,7 @@ func ReceiveFileRequestHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal("Websocket Upgrade Error: ", err)
 	}
+	defer ws.Close()
 	AllRooms.InsertIntoRoom(roomID, false, ws)
 
 	go broadcaster()
@@ -81,20 +89,26 @@ func ReceiveFileRequestHandler(w http.ResponseWriter, r *http.Request) {
 		var msg broadcastMessage
 		err := ws.ReadJSON((&msg.Message))
 		if err != nil {
-			log.Fatal(err)
+
+			//fmt.Println("Hello there")
+			//log.Println(err)
+			break
 		}
-		msg.Client = ws
-		msg.RoomID = roomID
 
-		log.Println(msg.Message)
+		if err == nil {
+			msg.Client = ws
+			msg.RoomID = roomID
 
-		broadcast <- msg
+			//log.Println(msg.Message)
+
+			broadcast <- msg
+		}
 	}
 }
 
 func SendFileRequestHandler(w http.ResponseWriter, r *http.Request) {
 	roomID := r.URL.Query().Get("roomID")
-	log.Println(roomID)
+	//log.Println(roomID)
 	if roomID == "" {
 		log.Println("roomID missing in URL Parameter")
 		return
@@ -105,7 +119,9 @@ func SendFileRequestHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal("Websocket Upgrade Error: ", err)
 	}
+	//defer ws.Close()
 	AllRooms.InsertIntoRoom(roomID, true, ws)
+	AllRooms.DeleteFromRoom(roomID, true, ws)
 
 	go broadcaster()
 
@@ -113,13 +129,20 @@ func SendFileRequestHandler(w http.ResponseWriter, r *http.Request) {
 		var msg broadcastMessage
 		err := ws.ReadJSON((&msg.Message))
 		if err != nil {
-			log.Fatal(err)
+
+			//ws.Close()
+			//fmt.Println("Hello there Kenobi")
+			break
+			//fmt.Println(err)
+			//log.Fatal(err)
+		} else {
+			msg.Client = ws
+			msg.RoomID = roomID
+
+			//fmt.Println("Hello there")
+			//log.Println(msg.Message)
+
+			broadcast <- msg
 		}
-		msg.Client = ws
-		msg.RoomID = roomID
-
-		log.Println(msg.Message)
-
-		broadcast <- msg
 	}
 }

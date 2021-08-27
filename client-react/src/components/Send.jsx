@@ -46,14 +46,13 @@ const Send = (props) => {
           }
 
           if (message.answer) {
-              //console.log("Receiving Answer");
               peerRef.current.setRemoteDescription(
                   new RTCSessionDescription(message.answer)
               );
           }
 
           if (message.iceCandidate) {
-              //console.log("Receiving and Adding ICE Candidate");
+              console.log("Receiving and Adding ICE Candidate");
               try {
                   await peerRef.current.addIceCandidate(
                       message.iceCandidate
@@ -79,14 +78,12 @@ const Send = (props) => {
           webSocketRef.current.send(
             JSON.stringify({filename:fileToSend.current.name,filetype:fileToSend.current.type,filesize:fileToSend.current.size})
         );
-          //console.log(fileToSend)
 
           var labelToSend=fileToSend.current.name
           const chunkSize = 16384;
           var channel=peerRef.current.createDataChannel(labelToSend,{maxRetransmits:4,});
           channel.onopen = function(event) {
 
-            console.log(fileToSend.current)
             var arrayBuffer;
             var fileReader = new FileReader();
             fileReader.onload = async function(event2) {
@@ -94,18 +91,15 @@ const Send = (props) => {
                 var begin=0
                 var end=chunkSize
                 while (true){
-                  console.log(arrayBuffer.slice(begin,end))
                   channel.send(arrayBuffer.slice(begin,end))
                   begin+=chunkSize
                   end+=chunkSize
                   if(begin>fileToSend.current.size)
                     break
                 }
-                //console.log(arrayBuffer);
                 await channel.send(arrayBuffer);
             };
             fileReader.readAsArrayBuffer(fileToSend.current);
-            //channel.send(arrayBuffer);
           }
         }
         else console.log("User not joined")
@@ -139,7 +133,6 @@ const Send = (props) => {
     const handleIceCandidateEvent = (e) => {
         console.log("Found Ice Candidate");
         if (e.candidate) {
-            //console.log(e.candidate);
             webSocketRef.current.send(
                 JSON.stringify({ iceCandidate: e.candidate })
             );

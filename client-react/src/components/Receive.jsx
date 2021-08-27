@@ -2,11 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import concatArrayBuffers from "./joinArrayBuffer";
 
 const Receive = (props) => {
-    let sentfile = useRef();
     const peerRef = useRef();
     const webSocketRef = useRef();
 
-    var [linkEnabled,setLinkEnabled]=useState(false)
     var [linkName, setLinkName]=useState(<p>Name of file will appear here once it is downloaded</p>)
     var [fileName,setFileName]=useState("")
     var [fileType,setFileType]=useState("")
@@ -23,7 +21,6 @@ const Receive = (props) => {
     useEffect(() => {
             webSocketRef.current.addEventListener("message", async (e) => {
                 const message = JSON.parse(e.data);
-                //console.log(message)
 
 				if (message.offer) {
                     handleOffer(message.offer);
@@ -46,20 +43,20 @@ const Receive = (props) => {
                 }
 
                 if (message.iceCandidate) {
-                    //console.log("Receiving and Adding ICE Candidate");
+                    console.log("Receiving and Adding ICE Candidate");
                     try {
                         await peerRef.current.addIceCandidate(
                             message.iceCandidate
                         );
                     } catch (err) {
-                        //console.log("Error Receiving ICE Candidate", err);
+                        console.log("Error Receiving ICE Candidate", err);
                     }
                 }
             });
     });
 
     const handleOffer = async (offer) => {
-        //console.log("Received Offer, Creating Answer");
+        console.log("Received Offer, Creating Answer");
         peerRef.current = createPeer();
 
         await peerRef.current.setRemoteDescription(
@@ -76,7 +73,7 @@ const Receive = (props) => {
 
 
     const createPeer = () => {
-        //console.log("Creating Peer Connection");
+        console.log("Creating Peer Connection");
         const peer = new RTCPeerConnection({
             iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
         });
@@ -89,7 +86,7 @@ const Receive = (props) => {
     };
 
     const handleNegotiationNeeded = async () => {
-        //console.log("Creating Offer");
+        console.log("Creating Offer");
 
         try {
             const myOffer = await peerRef.current.createOffer();
@@ -102,9 +99,8 @@ const Receive = (props) => {
     };
 
     const handleIceCandidateEvent = (e) => {
-        //console.log("Found Ice Candidate");
+        console.log("Found Ice Candidate");
         if (e.candidate) {
-            //console.log(e.candidate);
             webSocketRef.current.send(
                 JSON.stringify({ iceCandidate: e.candidate })
             );
@@ -112,7 +108,6 @@ const Receive = (props) => {
     };
 
     const download =(e)=>{
-        //console.log("Requesting for download")
         webSocketRef.current.send(
             JSON.stringify({request:"send"})
         );
@@ -120,22 +115,14 @@ const Receive = (props) => {
     const handleTrackEvent = async (e) => {
         
         var channel = e.channel;
-        //const [name,type,size] = channel.label.split('....');
-        const chunkSize = 16384;
         var data=new ArrayBuffer()
         channel.onmessage = async(event) =>{
             data=concatArrayBuffers(data,event.data)
-            //console.log(data.byteLength)
-            //console.log(Number(size))
             if(fileSize!==0&&fileName!==""&&fileType!==""&&data.byteLength===fileSize){
                 var url=await arrayBufferToBase64(data,fileType,fileName)
                 setLinkName(<a href={url} download={fileName}>{fileName}</a>)
-                console.log(data)
             }
-        }
-        
-        setLinkEnabled(true)
-        
+        }        
     };
 
 

@@ -3,7 +3,7 @@ import React, { useState } from "react";
 const UploadFiles = (props) => {
     var [selectedFile, setSelectedFile] = useState(undefined);
     const selectFile = (event) => {
-      if(event.target.files[0].size<10485770)
+      if(event.target.files[0]!==undefined&&event.target.files[0].size<10485770)
         setSelectedFile(event.target.files[0]);
       else
         setSelectedFile(undefined)
