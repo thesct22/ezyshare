@@ -13,21 +13,21 @@ I use drive too much to share files between my phone and PC to share files for p
   - [x] Implement Signalling server using websockets in Go
   - [x] Create necessary endpoints
   - [ ] Added necessary security
-  - [ ] Create random connection ID or user-given ID as endpoints
+  - [x] Create random connection ID or user-given ID as endpoints
   - [ ] Make sure everything is working fine
   - [ ] Find a hosting platform for the backend to run (preferably free)
 - [ ] Work on Frontend using ReactJS
-  - [ ] Use Material design
+  - [x] Use Material design
   - [ ] Implement night mode
   - [x] Create reuqired links to endpoint APIs of backend
   - [x] Implement WebRTC
   - [x] Make upload portal
   - [x] Make download portal
   - [x] Create page for Unique ID Creation
-  - [ ] Link sharing through text, mail or other sharing methods
-  - [ ] Link sharing with QR code scanner
+  - [ ] Textbox to copy the generated links
+  - [x] Link sharing with QR code scanner
   - [ ] Make sure everything is working
-  - [ ] Make sure UI is good
+  - [x] Make sure UI is good
   - [ ] Host the website
 - [ ] Work on Android App with Android Studio
   - [ ] Make sure Android app can work with your backend
