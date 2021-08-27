@@ -16,14 +16,6 @@ const Send = (props) => {
       setSelectedFile(val)
     }
 
-    // useEffect(()=>{
-    //   webSocketRef.current = new WebSocket(`ws://192.168.18.19:8000/send?roomID=${props.match.params.roomID}`);
-
-    //   webSocketRef.current.addEventListener("open", () => {
-    //       webSocketRef.current.send(JSON.stringify({ client: "sender" }));
-    //   });
-    // },[]);
-
     useEffect(() => {
       webSocketRef.current = new WebSocket(`ws://192.168.18.19:8000/send?roomID=${props.match.params.roomID}`);
 
@@ -63,12 +55,6 @@ const Send = (props) => {
           }
       });
     });
-
-    // useEffect(()=>{
-    //   if (selectedFile!==undefined){
-    //     //console.log("This file is added")
-    //     //console.log(selectedFile)}
-    // })
 
     const callUser = () => {
         console.log("Calling Other User");
