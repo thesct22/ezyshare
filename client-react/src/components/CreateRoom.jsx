@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import QRCode from "react-qr-code";
+
 
 const CreateRoom =(props)=>{
 
@@ -82,6 +84,30 @@ const CreateRoom =(props)=>{
                 </div>
                 <div className="col">
                     <button onClick={toRecv} className="btn btn-default">Receive</button>
+                </div>
+            </div>
+            <div className="row">
+                <div className="col-sm-3 m-2 p-2 bg-light border">
+                <div className="card">
+                    <QRCode value={roomID===""?"":"192.168.18.19/send/"+roomID} className="card-img-top m-1 my-2"/>
+                    <div className="card-body">
+                        <h5 className="card-title">Send</h5>
+                        <p className="card-text">
+                            Scan this QR code on your phone to send files.
+                        </p>
+                    </div>
+                </div>
+                </div>
+                <div className="col-sm-3 m-2 p-2 bg-light border">
+                <div className="card">
+                    <QRCode value={roomID===""?"":"192.168.18.19/recv/"+roomID} className="card-img-top m-1 my-2" />
+                    <div className="card-body">
+                        <h5 className="card-title">Receive</h5>
+                        <p className="card-text">
+                            Scan this QR code on your phone to receive files.
+                        </p>
+                    </div>
+                </div>
                 </div>
             </div>
 
