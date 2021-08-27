@@ -13,6 +13,18 @@ const Send = (props) => {
     var [linkDisabled, setLinkDisabled] = useState(true);
 
     let addfile=async(val)=>{
+        if (val===undefined){
+            console.log("aloy")
+            webSocketRef.current.send(
+                JSON.stringify({fileuploaded:false})
+            );
+        }
+        else{
+            console.log("oy")
+            webSocketRef.current.send(
+                JSON.stringify({fileuploaded:true})
+            );
+        }
       setSelectedFile(val)
     }
 

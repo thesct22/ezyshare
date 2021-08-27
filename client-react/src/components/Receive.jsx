@@ -9,6 +9,7 @@ const Receive = (props) => {
     var [fileName,setFileName]=useState("")
     var [fileType,setFileType]=useState("")
     var [fileSize,setFileSize]=useState(0)
+    var [fileUploaded,setFileUploaded]=useState(false)
 
     useEffect(()=>{
         webSocketRef.current = new WebSocket(`ws://192.168.18.19:8000/recv?roomID=${props.match.params.roomID}`);
@@ -21,7 +22,7 @@ const Receive = (props) => {
     useEffect(() => {
             webSocketRef.current.addEventListener("message", async (e) => {
                 const message = JSON.parse(e.data);
-
+                console.log(message)
 				if (message.offer) {
                     handleOffer(message.offer);
                 }
@@ -33,6 +34,15 @@ const Receive = (props) => {
                 } 
                 if(message.filesize){
                     setFileSize(message.filesize)
+                }
+
+                if(message.fileuploaded){
+                    console.log("ahem")
+                    setFileUploaded(true)
+                }
+
+                if(!message.fileuploaded){
+                    setFileUploaded(false)
                 }
 
                 if (message.answer) {
@@ -120,7 +130,15 @@ const Receive = (props) => {
             data=concatArrayBuffers(data,event.data)
             if(fileSize!==0&&fileName!==""&&fileType!==""&&data.byteLength===fileSize){
                 var url=await arrayBufferToBase64(data,fileType,fileName)
-                setLinkName(<a href={url} download={fileName}>{fileName}</a>)
+                setLinkName(
+                <div>
+                    <h3>{fileName}</h3>
+                    <a href={url} download={fileName}>
+                        <button type="button" className="btn btn-primary btn-floating" >
+                            <i className="fas fa-download"></i>
+                        </button>
+                    </a>
+                </div>)
             }
         }        
     };
@@ -138,22 +156,35 @@ const Receive = (props) => {
         const url = `data:${mimType};base64,` + file;
         console.log(url)
         
-        setLinkName(<a href={url} download={filename}>{filename}</a>)
+        setLinkName(
+            <div>
+                <p>{filename}</p>
+                <button type="button" className="btn btn-primary btn-floating">
+                    <i className="fas fa-download" href={url} download={filename}></i>
+                </button>
+            </div>
+            
+        )
         return url
       }
 
     
     return (
-        <div>   
-            <button
-                className="btn btn-success"
-                // disabled={!selectedFile}
-                onClick={download}
-                download
-            >
-                Download
-            </button>
-            {linkName}
+        <div className="container m-sm-4 p-4 border col-sm-2">   
+            <div className="row p-4"><h2>Download File</h2></div>
+            <div className="row p-4">
+                <button
+                    className="btn btn-success"
+                    disabled={fileUploaded}
+                    onClick={download}
+                    download
+                >
+                    Download
+                </button>
+            </div>
+            <div className="row p-4">
+                {linkName}
+            </div>
         </div>
     );
 };

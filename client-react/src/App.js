@@ -5,7 +5,6 @@ import {BrowserRouter,Route,Switch} from 'react-router-dom';
 import CreateRoom from "./components/CreateRoom"
 import Receive from './components/Receive';
 import Send from "./components/Send";
-import "./assets/scss/custom.scss";
 
 function App() {
   return (
