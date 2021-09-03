@@ -5,6 +5,9 @@ import UploadFiles from './FileUpload';
 
 
 const Send = (props) => {
+
+    const SERVER_WS = process.env.REACT_APP_SERVER_WS;
+
     const fileToSend = useRef();
     const peerRef = useRef();
     const webSocketRef = useRef();
@@ -29,7 +32,7 @@ const Send = (props) => {
     }
 
     useEffect(() => {
-      webSocketRef.current = new WebSocket(`ws://192.168.18.19:8000/send?roomID=${props.match.params.roomID}`);
+      webSocketRef.current = new WebSocket(`${SERVER_WS}/send?roomID=${props.match.params.roomID}`);
 
       webSocketRef.current.addEventListener("open", () => {
           webSocketRef.current.send(JSON.stringify({ client: "sender" }));

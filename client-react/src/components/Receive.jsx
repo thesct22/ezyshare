@@ -2,6 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import concatArrayBuffers from "./joinArrayBuffer";
 
 const Receive = (props) => {
+
+    const SERVER_WS = process.env.REACT_APP_SERVER_WS;
+
     const peerRef = useRef();
     const webSocketRef = useRef();
 
@@ -12,7 +15,7 @@ const Receive = (props) => {
     var [fileUploaded,setFileUploaded]=useState(false)
 
     useEffect(()=>{
-        webSocketRef.current = new WebSocket(`ws://192.168.18.19:8000/recv?roomID=${props.match.params.roomID}`);
+        webSocketRef.current = new WebSocket(`${SERVER_WS}/recv?roomID=${props.match.params.roomID}`);
 
         webSocketRef.current.addEventListener("open", () => {
             webSocketRef.current.send(JSON.stringify({client:"receiver"}));

@@ -8,6 +8,8 @@ COPY go.sum ./
 RUN go mod download
 
 COPY *.go ./
+COPY ./server ./server
+
 
 RUN go build -o /backend-go
 
