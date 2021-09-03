@@ -11,4 +11,4 @@ COPY *.go ./
 
 RUN go build -o /backend-go
 
-CMD [ "/docker-gs-ping" ]
+CMD [ "/backend-go" ]
