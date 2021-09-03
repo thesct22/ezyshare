@@ -11,8 +11,7 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
-		log.Printf("Defaulting to port %s", port)
+		log.Fatal("$PORT must be set")
 	}
 
 	server.AllRooms.Init()

@@ -1,16 +1,17 @@
-FROM golang:1.16-alpine
+FROM golang:1.16
+
+COPY . /src
+
+WORKDIR /src
+
+RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -o backend-go .
+
+
+
+FROM heroku/heroku:18
 
 WORKDIR /app
 
-COPY go.mod ./
-COPY go.sum ./
+COPY --from=0 /src/backend-go /app
 
-RUN go mod download
-
-COPY *.go ./
-COPY ./server ./server
-
-
-RUN go build -o /backend-go
-
-CMD [ "/backend-go" ]
+CMD ["./backend-go"]
