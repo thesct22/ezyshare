@@ -20,12 +20,11 @@ const Receive = (props) => {
         webSocketRef.current.addEventListener("open", () => {
             webSocketRef.current.send(JSON.stringify({client:"receiver"}));
         });
-    },[])
+    },[]);
 
     useEffect(() => {
             webSocketRef.current.addEventListener("message", async (e) => {
                 const message = JSON.parse(e.data);
-                console.log(message)
 				if (message.offer) {
                     handleOffer(message.offer);
                 }
@@ -40,7 +39,6 @@ const Receive = (props) => {
                 }
 
                 if(message.fileuploaded){
-                    console.log("ahem")
                     setFileUploaded(true)
                 }
 
@@ -49,27 +47,14 @@ const Receive = (props) => {
                 }
 
                 if (message.answer) {
-                    console.log("Receiving Answer");
                     peerRef.current.setRemoteDescription(
                         new RTCSessionDescription(message.answer)
                     );
-                }
-
-                if (message.iceCandidate) {
-                    console.log("Receiving and Adding ICE Candidate");
-                    try {
-                        await peerRef.current.addIceCandidate(
-                            message.iceCandidate
-                        );
-                    } catch (err) {
-                        console.log("Error Receiving ICE Candidate", err);
-                    }
                 }
             });
     });
 
     const handleOffer = async (offer) => {
-        console.log("Received Offer, Creating Answer");
         peerRef.current = createPeer();
 
         await peerRef.current.setRemoteDescription(
@@ -77,42 +62,28 @@ const Receive = (props) => {
         );
 
         const answer = await peerRef.current.createAnswer();
-        await peerRef.current.setLocalDescription(answer);
-
-        webSocketRef.current.send(
-            JSON.stringify({ answer: peerRef.current.localDescription })
-        );
+        if (peerRef.current.signalingState!=="stable"){
+            console.log(peerRef.current.signalingState)
+            await peerRef.current.setLocalDescription(answer);
+            webSocketRef.current.send(
+                JSON.stringify({ answer: peerRef.current.localDescription })
+            );
+        }
     };
 
 
     const createPeer = () => {
-        console.log("Creating Peer Connection");
         const peer = new RTCPeerConnection({
             iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
         });
 
-        peer.onnegotiationneeded = handleNegotiationNeeded;
         peer.onicecandidate = handleIceCandidateEvent;
         peer.ondatachannel = handleTrackEvent;
 
         return peer;
     };
 
-    const handleNegotiationNeeded = async () => {
-        console.log("Creating Offer");
-
-        try {
-            const myOffer = await peerRef.current.createOffer();
-            await peerRef.current.setLocalDescription(myOffer);
-
-            webSocketRef.current.send(
-                JSON.stringify({ offer: peerRef.current.localDescription })
-            );
-        } catch (err) {}
-    };
-
     const handleIceCandidateEvent = (e) => {
-        console.log("Found Ice Candidate");
         if (e.candidate) {
             webSocketRef.current.send(
                 JSON.stringify({ iceCandidate: e.candidate })
@@ -157,7 +128,6 @@ const Receive = (props) => {
         const file = window.btoa(binary);
         const mimType = Filetype
         const url = `data:${mimType};base64,` + file;
-        console.log(url)
         
         setLinkName(
             <div>

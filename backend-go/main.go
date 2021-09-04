@@ -11,7 +11,8 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		log.Fatal("$PORT must be set")
+		port = "6969"
+		//log.Fatal("$PORT must be set")
 	}
 
 	server.AllRooms.Init()

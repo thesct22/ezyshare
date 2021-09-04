@@ -5,6 +5,7 @@ import QRCode from "react-qr-code";
 const CreateRoom =(props)=>{
     
     const SERVER_URL = process.env.REACT_APP_SERVER_URL;
+    const baseUrl = window.location.href;
     console.log(SERVER_URL)
 
 
@@ -71,7 +72,7 @@ const CreateRoom =(props)=>{
                 <div className="row">
                     <div className="col-12 col-sm-8">
                         <div className="form-outline">
-                            <input type="text" id="form2" className="form-control" value={roomID===""?"":`${SERVER_URL}/send/`+roomID} readOnly/>
+                            <input type="text" id="form2" className="form-control" value={roomID===""?"":`${baseUrl}send/`+roomID} readOnly/>
                             <label className="form-label" htmlFor="form2">Link for Sending Files</label>
                         </div>
                     </div>
@@ -89,7 +90,7 @@ const CreateRoom =(props)=>{
                 <div className="row">
                     <div className="col-12 col-sm-8">
                         <div className="form-outline">
-                            <input type="text" id="form3" className="form-control" value={roomID===""?"":`${SERVER_URL}/recv/`+roomID} readOnly />
+                            <input type="text" id="form3" className="form-control" value={roomID===""?"":`${baseUrl}recv/`+roomID} readOnly />
                             <label className="form-label" htmlFor="form3">Link for Receiving Files</label>
                         </div>
                     </div>
@@ -102,7 +103,7 @@ const CreateRoom =(props)=>{
                 <div className="col-10 col-sm-5 m-2 p-2">
                     <div className="card text-center shadow-5 d-flex justify-content-center">
                         <div className="d-flex justify-content-center">
-                            <QRCode value={roomID===""?"":`${SERVER_URL}/send/`+roomID} className="card-img-top m-5"/>
+                            <QRCode value={roomID===""?"":`${baseUrl}send/`+roomID} className="card-img-top m-5"/>
                         </div>
                         <div className="card-body">
                             <h5 className="card-title">Send</h5>
@@ -115,7 +116,7 @@ const CreateRoom =(props)=>{
                 <div className="col-10 col-sm-5 m-2 p-2">
                     <div className="card text-center shadow-5 d-flex justify-content-center">
                         <div className="d-flex justify-content-center">
-                            <QRCode value={roomID===""?"":`${SERVER_URL}/recv/`+roomID} className="card-img-top m-5" />
+                            <QRCode value={roomID===""?"":`${baseUrl}recv/`+roomID} className="card-img-top m-5" />
                         </div>
                         <div className="card-body">
                             <h5 className="card-title">Receive</h5>

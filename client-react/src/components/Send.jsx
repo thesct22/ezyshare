@@ -17,13 +17,11 @@ const Send = (props) => {
 
     let addfile=async(val)=>{
         if (val===undefined){
-            console.log("aloy")
             webSocketRef.current.send(
                 JSON.stringify({fileuploaded:false})
             );
         }
         else{
-            console.log("oy")
             webSocketRef.current.send(
                 JSON.stringify({fileuploaded:true})
             );
@@ -31,12 +29,15 @@ const Send = (props) => {
       setSelectedFile(val)
     }
 
-    useEffect(() => {
-      webSocketRef.current = new WebSocket(`${SERVER_WS}/send?roomID=${props.match.params.roomID}`);
+    useEffect(()=>{
+        webSocketRef.current = new WebSocket(`${SERVER_WS}/send?roomID=${props.match.params.roomID}`);
+        webSocketRef.current.addEventListener("open", () => {
+            webSocketRef.current.send(JSON.stringify({ client: "sender" }));
+        });
+    },[]);
 
-      webSocketRef.current.addEventListener("open", () => {
-          webSocketRef.current.send(JSON.stringify({ client: "sender" }));
-      });
+    useEffect(() => {
+      
       if(selectedFile!==undefined)
         fileToSend.current= selectedFile;
       webSocketRef.current.addEventListener("message", async (e) => {
@@ -59,7 +60,6 @@ const Send = (props) => {
           }
 
           if (message.iceCandidate) {
-              console.log("Receiving and Adding ICE Candidate");
               try {
                   await peerRef.current.addIceCandidate(
                       message.iceCandidate
@@ -72,7 +72,6 @@ const Send = (props) => {
     });
 
     const callUser = () => {
-        console.log("Calling Other User");
         peerRef.current = createPeer();
         if(fileToSend.current!==undefined){
           console.log("sentfile")
@@ -107,19 +106,17 @@ const Send = (props) => {
     };
 
     const createPeer = () => {
-        console.log("Creating Peer Connection");
+        console.log("creating peer")
         const peer = new RTCPeerConnection({
             iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
         });
 
         peer.onnegotiationneeded = handleNegotiationNeeded;
-        peer.onicecandidate = handleIceCandidateEvent;
 
         return peer;
     };
 
     const handleNegotiationNeeded = async () => {
-        console.log("Creating Offer");
 
         try {
             const myOffer = await peerRef.current.createOffer();
@@ -129,15 +126,6 @@ const Send = (props) => {
                 JSON.stringify({ offer: peerRef.current.localDescription })
             );
         } catch (err) {}
-    };
-
-    const handleIceCandidateEvent = (e) => {
-        console.log("Found Ice Candidate");
-        if (e.candidate) {
-            webSocketRef.current.send(
-                JSON.stringify({ iceCandidate: e.candidate })
-            );
-        }
     };
 
     return(

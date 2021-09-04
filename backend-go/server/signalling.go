@@ -2,7 +2,7 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
+	//"fmt"
 	"log"
 	"net/http"
 
@@ -39,28 +39,23 @@ var broadcast = make(chan broadcastMessage)
 func broadcaster() {
 	for {
 		msg := <-broadcast
-
 		for _, client := range AllRooms.Map[msg.RoomID] {
 			if client.Conn != msg.Client {
+				//fmt.Println(msg)
 				err := client.Conn.WriteJSON(msg.Message)
+				// if err == nil {
+				// 	//fmt.Println(msg)
 
+				// }
 				if err != nil {
-					fmt.Println("Hello there12")
 					AllRooms.DeleteThisFromRoom(msg.RoomID, client.Conn)
-					//log.Println(err)
-					//log.Println(client)
-					//log.Println(msg)
-					//client.Conn.Close()
 				}
 			}
-			if !client.Host {
+			if !client.Host && client.Conn != msg.Client {
 				err := client.Conn.WriteJSON("added-recv")
-
+				//fmt.Println(client.Conn.RemoteAddr())
 				if err != nil {
 					AllRooms.DeleteThisFromRoom(msg.RoomID, client.Conn)
-					fmt.Println("Hello there13")
-					//log.Fatal(err)
-					//client.Conn.Close()
 				}
 			}
 		}
