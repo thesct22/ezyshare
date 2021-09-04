@@ -38,7 +38,7 @@ const UploadFiles = (props) => {
       </div>
       <div className="row">
         <div className="col">
-          <h2 className="p-3">{selectedFile===undefined?"Maximum size should be 10MB":selectedFile.name}</h2>
+          <h2 className="p-3">{selectedFile===undefined?"Maximum file size should be 10MB":selectedFile.name}</h2>
         </div>
         <div className="col">
           <button className="btn btn-success" disabled={!selectedFile || props.disabled} onClick={upload}>
