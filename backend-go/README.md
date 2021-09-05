@@ -1,5 +1,12 @@
 # Server for signalling the details of both devices
 
+[![Heroku](https://heroku-badge.herokuapp.com/?app=heroku-badge&style=flat)](https://guarded-atoll-76755.herokuapp.com/)
+
+Endpoints are:
+* /recv
+* /send
+* /make & /
+
 ## Uses Websockets to receive device details to share to each other.
 
 Details include:
