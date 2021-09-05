@@ -16,9 +16,9 @@ I use drive too much to share files between my phone and PC to share files for p
   - [x] Create random connection ID or user-given ID as endpoints
   - [x] Make sure everything is working fine
   - [x] Find a hosting platform for the backend to run (preferably free) (heroku)
-- [ ] Work on Frontend using ReactJS
+- [x] Work on Frontend using ReactJS
   - [x] Use Material design
-  - [ ] Implement night mode
+  - [x] Implement night mode
   - [x] Create reuqired links to endpoint APIs of backend
   - [x] Implement WebRTC
   - [x] Make upload portal

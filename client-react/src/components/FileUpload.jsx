@@ -29,7 +29,7 @@ const UploadFiles = (props) => {
               <div {...getRootProps()} className="d-flex align-items-center justify-content-center w-100" style={{height: "200px", backgroundColor: "#BDBDBD"}}>
                 <input {...getInputProps()} />
                 <div className="row d-flex align-items-center justify-content-center text-center">
-                  <p className="m-5">{"Drag 'n' drop some files here, or click to select files"}</p>
+                  <p className="m-5" style={{color:"#000"}}>{"Drag 'n' drop some files here, or click to select files"}</p>
                 </div>
               </div>
             </section>
