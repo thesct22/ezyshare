@@ -9,9 +9,9 @@ import Send from "./components/Send";
 function App() {
   return (
     <div className="App">
-      <BrowserRouter>
+      <BrowserRouter basename={process.env.PUBLIC_URL}>
         <Switch>
-          <Route path="/" exact component={CreateRoom}></Route>
+          <Route exact path="/" component={CreateRoom}></Route>
           <Route path="/send/:roomID" component={Send}></Route>
           <Route path="/recv/:roomID" component={Receive}></Route>
         </Switch>

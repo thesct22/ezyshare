@@ -14,8 +14,8 @@ I use drive too much to share files between my phone and PC to share files for p
   - [x] Create necessary endpoints
   - [ ] Added necessary security
   - [x] Create random connection ID or user-given ID as endpoints
-  - [ ] Make sure everything is working fine
-  - [ ] Find a hosting platform for the backend to run (preferably free)
+  - [x] Make sure everything is working fine
+  - [x] Find a hosting platform for the backend to run (preferably free) (heroku)
 - [ ] Work on Frontend using ReactJS
   - [x] Use Material design
   - [ ] Implement night mode
@@ -24,11 +24,11 @@ I use drive too much to share files between my phone and PC to share files for p
   - [x] Make upload portal
   - [x] Make download portal
   - [x] Create page for Unique ID Creation
-  - [ ] Textbox to copy the generated links
+  - [x] Textbox to copy the generated links
   - [x] Link sharing with QR code scanner
-  - [ ] Make sure everything is working
+  - [x] Make sure everything is working
   - [x] Make sure UI is good
-  - [ ] Host the website
+  - [x] Host the website (heroku)
 - [ ] Work on Android App with Android Studio
   - [ ] Make sure Android app can work with your backend
   - [ ] Use Material design
