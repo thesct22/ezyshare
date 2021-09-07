@@ -5,6 +5,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -82,5 +83,15 @@ public class MainActivity extends AppCompatActivity {
         for(int i = 0; i < 8; i++)
             sb.append(AB.charAt(rnd.nextInt(AB.length())));
         return sb.toString();
+    }
+
+    public void sendFile(View view) {
+        Intent intent = new Intent(MainActivity.this, SendActivity.class);
+        startActivity(intent);
+    }
+
+    public void receiveFile(View view) {
+        Intent intent = new Intent(MainActivity.this, ReceiveActivity.class);
+        startActivity(intent);
     }
 }
