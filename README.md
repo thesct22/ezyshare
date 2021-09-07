@@ -32,9 +32,9 @@ It's P2P so your data isn't passing through a server (I guess)
   - [x] Make sure UI is good
   - [x] Host the website (heroku)
 - [ ] Work on Android App with Android Studio
-  - [ ] Make sure Android app can work with your backend
+  - [x] Make sure Android app can work with your backend
   - [ ] Use Material design
-  - [ ] Make activity to create link and connect to other device for sharing
+  - [x] Make activity to create link and connect to other device for sharing
   - [ ] Make Upload portal activity
   - [ ] Make download portal activity
   - [ ] Provision sharing options
