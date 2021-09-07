@@ -5,7 +5,7 @@ import DarkModeToggle from "react-dark-mode-toggle";
 
 
 const DarkModeToggler = () => {
-  const darkMode = useDarkMode(false);
+  const darkMode = useDarkMode(true);
   return (
     <div className="dark-mode-toggle">
       <DarkModeToggle

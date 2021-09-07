@@ -12,10 +12,10 @@ function App() {
   return (
     <div className="App">
       <div className="row bg-primary p-2">
-        <div className="col-md-10">
+        <div className=" col-6 col-md-10">
           <h1 className="pl-4">EzyShare</h1>
         </div>
-        <div className="col-md-2 d-flex align-items-center justify-content-center">
+        <div className="col-6 col-md-2 d-flex align-items-center justify-content-center">
           <DarkModeToggler/>
         </div>
       </div>

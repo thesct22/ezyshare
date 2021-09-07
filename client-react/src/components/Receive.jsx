@@ -143,7 +143,7 @@ const Receive = (props) => {
 
     
     return (
-        <div className="container m-sm-4 p-4 border col-sm-2">   
+        <div className="container m-sm-4 p-4 col-sm-2 col-md-6">   
             <div className="row p-4"><h2>Download File</h2></div>
             <div className="row p-4">
                 <button
