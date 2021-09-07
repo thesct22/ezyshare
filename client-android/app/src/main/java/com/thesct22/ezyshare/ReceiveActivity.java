@@ -14,7 +14,12 @@ import com.neovisionaries.ws.client.WebSocketException;
 import com.neovisionaries.ws.client.WebSocketFactory;
 import com.neovisionaries.ws.client.WebSocketListener;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 public class ReceiveActivity extends AppCompatActivity {
 
@@ -57,6 +62,64 @@ public class ReceiveActivity extends AppCompatActivity {
                 @Override
                 public void onTextMessage(WebSocket websocket, String message) throws Exception {
                     Log.d("TAG", "onTextMessage: " + message);
+                    JSONObject mainObject = new JSONObject(message);
+
+                    try{
+                        String filename=mainObject.getString("filename");
+                        if(filename=="receiver"){}
+                    }
+                    catch (JSONException e){
+
+                    }
+
+                    try{
+                        String filetype=mainObject.getString("filetype");
+                        if(filetype=="send"){}
+
+                    }
+                    catch (JSONException e){
+
+                    }
+
+                    try{
+                        long filesize=mainObject.getLong("filesize");
+                        if(filesize==0){}
+
+                    }
+                    catch (JSONException e){
+
+                    }
+
+                    try{
+                        Object offer =mainObject.get("offer");
+                    }
+                    catch (JSONException e){
+
+                    }
+
+                    try{
+                        Object answer =mainObject.get("answer");
+                    }
+                    catch (JSONException e){
+
+                    }
+
+                    try{
+                        boolean fileUploaded =mainObject.getBoolean("fileUploaded");
+                        if(fileUploaded){}
+                        else{}
+                    }
+                    catch (JSONException e){
+
+                    }
+
+
+                }
+
+                @Override
+                public void onConnected(WebSocket websocket, Map<String, List<String>> headers) throws Exception {
+                    super.onConnected(websocket, headers);
+                    ws.sendText("{\"client\":\"receiver\"");
                 }
             });
 

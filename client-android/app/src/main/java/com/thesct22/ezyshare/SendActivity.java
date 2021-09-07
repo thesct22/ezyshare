@@ -14,7 +14,12 @@ import com.neovisionaries.ws.client.WebSocketException;
 import com.neovisionaries.ws.client.WebSocketFactory;
 import com.neovisionaries.ws.client.WebSocketFrame;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 public class SendActivity extends AppCompatActivity {
     private static final String TAG = "SendActivity";
@@ -60,11 +65,46 @@ public class SendActivity extends AppCompatActivity {
                 @Override
                 public void onTextMessage(WebSocket websocket, String message) throws Exception {
                     Log.d("TAG", "onTextMessage: " + message);
+                    JSONObject mainObject = new JSONObject(message);
+
+                    try{
+                        String client=mainObject.getString("client");
+                        if(client=="receiver"){}
+                    }
+                    catch (JSONException e){
+
+                    }
+                    try{
+                        String request=mainObject.getString("request");
+                        if(request=="send"){}
+
+                    }
+                    catch (JSONException e){
+
+                    }
+                    try{
+                        Object val =mainObject.get("answer");
+                    }
+                    catch (JSONException e){
+
+                    }
+                    try{
+                        Object val =mainObject.get("iceCandidate");
+                    }
+                    catch (JSONException e){
+
+                    }
                 }
 
+                @Override
+                public void onConnected(WebSocket websocket, Map<String, List<String>> headers) throws Exception {
+                    super.onConnected(websocket, headers);
+                    ws.sendText("{\"client\":\"sender\"");
+                }
             });
 
             ws.connectAsynchronously();
+
         } catch (Exception e) {
             e.printStackTrace();
             Log.e(TAG, e.toString());
