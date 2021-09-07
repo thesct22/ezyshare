@@ -3,6 +3,8 @@
 An application to easily share small files across devices directly with minimal interaction with a server.
 I use drive too much to share files between my phone and PC to share files for printing or something. Hopefully this helps with that.
 
+It's P2P so your data isn't passing through a server (I guess)
+
 ## To-do
 
 - [x] Create Repo 
