@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">EzyShare</string>
+    <string name="link_to_receive_file">Link to Receive File</string>
+    <string name="link_to_send_file">Link to Send File</string>
+    <string name="enter_or_create_unique_id">Enter or Create Unique ID</string>
+</resources>
