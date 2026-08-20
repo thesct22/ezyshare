@@ -34,6 +34,17 @@ func TestRoomManagerLifecycle(t *testing.T) {
 		t.Fatalf("expected ErrRoomIDTaken, got %v", errDup)
 	}
 
+	// Invalid custom room ID (too short / special chars) fails
+	_, errInvalid := rm.CreateRoom("ab", "peer-1")
+	if errInvalid != signaling.ErrInvalidRoomID {
+		t.Fatalf("expected ErrInvalidRoomID, got %v", errInvalid)
+	}
+
+	_, errInjection := rm.CreateRoom("<script>alert(1)</script>", "peer-1")
+	if errInjection != signaling.ErrInvalidRoomID {
+		t.Fatalf("expected ErrInvalidRoomID for XSS payload, got %v", errInjection)
+	}
+
 	// Join room
 	_, errJoin := rm.JoinRoom("my-custom-room", c2)
 	if errJoin != nil {

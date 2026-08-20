@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand"
+	"regexp"
 	"sync"
 	"time"
 
@@ -13,10 +14,13 @@ import (
 )
 
 var (
-	ErrRoomNotFound = errors.New("room not found")
-	ErrRoomIDTaken  = errors.New("custom room ID already in use")
-	ErrRoomFull     = errors.New("room reached maximum peer capacity")
+	ErrRoomNotFound  = errors.New("room not found")
+	ErrRoomIDTaken   = errors.New("custom room ID already in use")
+	ErrRoomFull      = errors.New("room reached maximum peer capacity")
+	ErrInvalidRoomID = errors.New("invalid custom room ID (must be 4-64 alphanumeric characters, hyphens, or underscores)")
 )
+
+var roomIDRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]{4,64}$`)
 
 const MaxPeersPerRoom = 10
 
@@ -46,6 +50,10 @@ func (rm *RoomManager) CreateRoom(customID, hostID string) (*domain.Room, error)
 	if roomID == "" {
 		roomID = rm.generateUUID()
 		isCustom = false
+	} else {
+		if !roomIDRegex.MatchString(roomID) {
+			return nil, ErrInvalidRoomID
+		}
 	}
 
 	if _, exists := rm.rooms[roomID]; exists {
@@ -133,7 +141,7 @@ func (rm *RoomManager) RelayRoomSignal(roomID string, msg domain.SignalMessage) 
 	}
 
 	if msg.TargetID != "" {
-		room.Broadcast(msg, "") // Targeted relay within room
+		room.Broadcast(msg, "")
 		return nil
 	}
 
