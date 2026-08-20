@@ -9,6 +9,7 @@ import (
 
 	"github.com/thesct22/ezyshare/backend/internal/domain"
 	"github.com/thesct22/ezyshare/backend/internal/signaling"
+	"github.com/thesct22/ezyshare/backend/internal/telemetry"
 )
 
 type wsClient struct {
@@ -30,17 +31,19 @@ func (c *wsClient) Close() error {
 
 type Handler struct {
 	hub      *signaling.Hub
+	metrics  *telemetry.Metrics
 	upgrader websocket.Upgrader
 }
 
-func NewHandler(hub *signaling.Hub) *Handler {
+func NewHandler(hub *signaling.Hub, metrics *telemetry.Metrics) *Handler {
 	return &Handler{
-		hub: hub,
+		hub:     hub,
+		metrics: metrics,
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 			CheckOrigin: func(r *http.Request) bool {
-				return true // allow all origins for now, will restrict in production!
+				return true
 			},
 		},
 	}
@@ -49,18 +52,34 @@ func NewHandler(hub *signaling.Hub) *Handler {
 func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		slog.Error("Failed to upgrade connection", "error", err)
+		slog.Error("Failed to upgrade connection", "error", err, "client_ip", telemetry.GetClientIP(r))
+		if h.metrics != nil {
+			h.metrics.WebSocketConnections.WithLabelValues("failed").Inc()
+		}
 		return
 	}
 	defer conn.Close()
 
+	if h.metrics != nil {
+		h.metrics.WebSocketConnections.WithLabelValues("connected").Inc()
+	}
+
 	var client *wsClient
 
-	// Read loop: keeps listening for incoming WebSocket messages
+	defer func() {
+		if client != nil {
+			h.hub.Unregister(client)
+			slog.Info("Peer disconnected", "peer_id", client.ID())
+		}
+		if h.metrics != nil {
+			h.metrics.WebSocketConnections.WithLabelValues("disconnected").Inc()
+		}
+	}()
+
 	for {
 		var msg domain.SignalMessage
 		if err := conn.ReadJSON(&msg); err != nil {
-			slog.Error("Failed to read message", "error", err) // breaks if the connection is closed or an error occurs
+			slog.Debug("WebSocket connection closed or read error", "error", err)
 			break
 		}
 
@@ -75,12 +94,13 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 				conn: conn,
 			}
 			h.hub.Register(client)
+
 		case domain.TypeLeave:
 			if client != nil {
-				h.hub.Unregister(client)
-				slog.Info("Peer left", "peer_id", client.ID())
+				slog.Info("Peer requested leave", "peer_id", client.ID())
 			}
 			return
+
 		case domain.TypeOffer, domain.TypeAnswer, domain.TypeCandidate:
 			if client == nil {
 				slog.Warn("Unauthenticated signaling frame received before join", "type", msg.Type)
@@ -99,11 +119,5 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		default:
 			slog.Warn("Unknown message type", "type", msg.Type)
 		}
-
-		if client != nil {
-			h.hub.Unregister(client)
-			slog.Info("Peer disconnected", "peer_id", client.ID())
-		}
 	}
-
 }
