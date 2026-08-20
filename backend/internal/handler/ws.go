@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/websocket"
 
@@ -74,6 +75,29 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 
 	// Enforce max 64KB per read frame to protect server memory
 	conn.SetReadLimit(64 * 1024)
+
+	// Heartbeat Ping/Pong setup to prune dead TCP connections
+	pingPeriod := 30 * time.Second
+	pongWait := 60 * time.Second
+	writeWait := 10 * time.Second
+
+	_ = conn.SetReadDeadline(time.Now().Add(pongWait))
+	conn.SetPongHandler(func(string) error {
+		_ = conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+
+	pingTicker := time.NewTicker(pingPeriod)
+	defer pingTicker.Stop()
+
+	go func() {
+		for range pingTicker.C {
+			_ = conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
+		}
+	}()
 
 	if h.metrics != nil {
 		h.metrics.WebSocketConnections.WithLabelValues("connected").Inc()
