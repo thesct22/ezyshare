@@ -14,37 +14,42 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/thesct22/ezyshare/backend/internal/handler"
 	"github.com/thesct22/ezyshare/backend/internal/signaling"
+	"github.com/thesct22/ezyshare/backend/internal/telemetry"
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
+	logLevel := os.Getenv("LOG_LEVEL")
+	logFormat := os.Getenv("LOG_FORMAT")
+	_ = telemetry.InitLogger(logLevel, logFormat)
 
-	hub := signaling.NewHub()
+	metrics := telemetry.NewMetrics(prometheus.DefaultRegisterer)
+
+	hub := signaling.NewHub(metrics)
 	go hub.Start()
 
-	wsHandler := handler.NewHandler(hub)
+	wsHandler := handler.NewHandler(hub, metrics)
 
 	r := chi.NewRouter()
 
-	// essential middlewares
-	r.Use(middleware.RequestID) // assigns a unique ID to each request
-	r.Use(middleware.Recoverer) // Catches panics and returns 500 instead of crashing the process
+	r.Use(middleware.RequestID)
+	r.Use(middleware.Recoverer)
 
-	// CORS options
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"https://*", "http://localhost:*"}, // Restrict in production
+		AllowedOrigins:   []string{"https://*", "http://localhost:*"},
 		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
-		MaxAge:           300, // Maximum value for CORS preflight cache
+		MaxAge:           300,
 	}))
 
-	// structured logging middleware
+	r.Use(telemetry.HTTPMiddleware(metrics))
+
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
@@ -57,6 +62,7 @@ func main() {
 				"path", r.URL.Path,
 				"status", ww.Status(),
 				"duration", time.Since(start).String(),
+				"client_ip", telemetry.GetClientIP(r),
 				"req_id", middleware.GetReqID(r.Context()),
 			)
 		})
@@ -67,6 +73,7 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
+	r.Handle("/metrics", promhttp.Handler())
 
 	port := os.Getenv("PORT")
 	if port == "" {
