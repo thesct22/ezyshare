@@ -7,6 +7,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/thesct22/ezyshare/backend/internal/config"
 	"github.com/thesct22/ezyshare/backend/internal/domain"
 	"github.com/thesct22/ezyshare/backend/internal/signaling"
 	"github.com/thesct22/ezyshare/backend/internal/telemetry"
@@ -30,23 +31,33 @@ func (c *wsClient) Close() error {
 }
 
 type Handler struct {
-	hub      *signaling.Hub
-	metrics  *telemetry.Metrics
-	upgrader websocket.Upgrader
+	hub            *signaling.Hub
+	metrics        *telemetry.Metrics
+	allowedOrigins []string
+	upgrader       websocket.Upgrader
 }
 
-func NewHandler(hub *signaling.Hub, metrics *telemetry.Metrics) *Handler {
-	return &Handler{
-		hub:     hub,
-		metrics: metrics,
-		upgrader: websocket.Upgrader{
-			ReadBufferSize:  1024,
-			WriteBufferSize: 1024,
-			CheckOrigin: func(r *http.Request) bool {
+func NewHandler(hub *signaling.Hub, metrics *telemetry.Metrics, allowedOrigins []string) *Handler {
+	h := &Handler{
+		hub:            hub,
+		metrics:        metrics,
+		allowedOrigins: allowedOrigins,
+	}
+
+	h.upgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			if origin == "" {
+				// Allow requests without Origin header (e.g. CLI or mobile apps)
 				return true
-			},
+			}
+			return config.IsOriginAllowed(origin, h.allowedOrigins)
 		},
 	}
+
+	return h
 }
 
 func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
@@ -59,6 +70,9 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.Close()
+
+	// Enforce max 64KB per read frame to protect server memory
+	conn.SetReadLimit(64 * 1024)
 
 	if h.metrics != nil {
 		h.metrics.WebSocketConnections.WithLabelValues("connected").Inc()

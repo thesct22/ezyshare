@@ -22,7 +22,7 @@ func setupTestServer() (*httptest.Server, *signaling.Hub, *telemetry.Metrics) {
 	hub := signaling.NewHub(metrics)
 	go hub.Start()
 
-	wsHandler := handler.NewHandler(hub, metrics)
+	wsHandler := handler.NewHandler(hub, metrics, []string{"*"})
 
 	ts := httptest.NewServer(http.HandlerFunc(wsHandler.ServeWS))
 	return ts, hub, metrics
@@ -34,32 +34,59 @@ func dialWS(url string) (*websocket.Conn, error) {
 	return conn, err
 }
 
+func TestWebSocketOriginValidation(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	metrics := telemetry.NewMetrics(reg)
+	hub := signaling.NewHub(metrics)
+	go hub.Start()
+	defer hub.Stop()
+
+	wsHandler := handler.NewHandler(hub, metrics, []string{"https://sharath.is-a.dev"})
+	ts := httptest.NewServer(http.HandlerFunc(wsHandler.ServeWS))
+	defer ts.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http")
+
+	// Dial with unauthorized origin
+	headerFail := make(http.Header)
+	headerFail.Set("Origin", "https://unauthorized-site.com")
+	_, respFail, errFail := websocket.DefaultDialer.Dial(wsURL, headerFail)
+	if errFail == nil || respFail == nil || respFail.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403 Forbidden for unauthorized origin")
+	}
+
+	// Dial with authorized origin
+	headerSuccess := make(http.Header)
+	headerSuccess.Set("Origin", "https://sharath.is-a.dev")
+	connSuccess, _, errSuccess := websocket.DefaultDialer.Dial(wsURL, headerSuccess)
+	if errSuccess != nil {
+		t.Fatalf("expected origin https://sharath.is-a.dev to succeed: %v", errSuccess)
+	}
+	connSuccess.Close()
+}
+
 func TestWebSocketSignalingExchange(t *testing.T) {
 	ts, hub, metrics := setupTestServer()
 	defer ts.Close()
 	defer hub.Stop()
 
-	// Dial Client A
 	connA, err := dialWS(ts.URL)
 	if err != nil {
 		t.Fatalf("failed to dial Client A: %v", err)
 	}
 	defer connA.Close()
 
-	// Dial Client B
 	connB, err := dialWS(ts.URL)
 	if err != nil {
 		t.Fatalf("failed to dial Client B: %v", err)
 	}
 	defer connB.Close()
 
-	// Client A joins
 	joinA := domain.SignalMessage{Type: domain.TypeJoin, SenderID: "client-a"}
 	if err := connA.WriteJSON(joinA); err != nil {
 		t.Fatalf("Client A join write failed: %v", err)
 	}
 
-	// Client B joins
 	joinB := domain.SignalMessage{Type: domain.TypeJoin, SenderID: "client-b"}
 	if err := connB.WriteJSON(joinB); err != nil {
 		t.Fatalf("Client B join write failed: %v", err)
@@ -71,7 +98,6 @@ func TestWebSocketSignalingExchange(t *testing.T) {
 		t.Fatalf("expected 2 active peers in hub, got %f", val)
 	}
 
-	// Client A sends offer to Client B
 	offer := domain.SignalMessage{
 		Type:     domain.TypeOffer,
 		TargetID: "client-b",
@@ -81,7 +107,6 @@ func TestWebSocketSignalingExchange(t *testing.T) {
 		t.Fatalf("Client A offer write failed: %v", err)
 	}
 
-	// Client B reads offer
 	var receivedOffer domain.SignalMessage
 	connB.SetReadDeadline(time.Now().Add(1 * time.Second))
 	if err := connB.ReadJSON(&receivedOffer); err != nil {
@@ -92,7 +117,6 @@ func TestWebSocketSignalingExchange(t *testing.T) {
 		t.Fatalf("Client B received invalid offer: %+v", receivedOffer)
 	}
 
-	// Client B sends answer to Client A
 	answer := domain.SignalMessage{
 		Type:     domain.TypeAnswer,
 		TargetID: "client-a",
@@ -102,7 +126,6 @@ func TestWebSocketSignalingExchange(t *testing.T) {
 		t.Fatalf("Client B answer write failed: %v", err)
 	}
 
-	// Client A reads answer
 	var receivedAnswer domain.SignalMessage
 	connA.SetReadDeadline(time.Now().Add(1 * time.Second))
 	if err := connA.ReadJSON(&receivedAnswer); err != nil {
@@ -125,7 +148,6 @@ func TestUnauthenticatedSignalingFrame(t *testing.T) {
 	}
 	defer conn.Close()
 
-	// Send offer without join
 	offer := domain.SignalMessage{
 		Type:     domain.TypeOffer,
 		TargetID: "some-target",
@@ -134,7 +156,6 @@ func TestUnauthenticatedSignalingFrame(t *testing.T) {
 		t.Fatalf("write offer failed: %v", err)
 	}
 
-	// Connection stays alive, send join now
 	join := domain.SignalMessage{Type: domain.TypeJoin, SenderID: "client-unauth"}
 	if err := conn.WriteJSON(join); err != nil {
 		t.Fatalf("write join failed: %v", err)
