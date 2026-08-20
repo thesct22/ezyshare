@@ -18,6 +18,7 @@ type Metrics struct {
 	WebSocketConnections *prometheus.CounterVec
 	HTTPRequestsTotal    *prometheus.CounterVec
 	RoomsCreatedTotal    *prometheus.CounterVec
+	RateLimitExceeded    *prometheus.CounterVec
 	// Histogram metric
 	HTTPRequestDuration *prometheus.HistogramVec
 }
@@ -53,6 +54,13 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 			},
 			[]string{"type"},
 		),
+		RateLimitExceeded: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "ezyshare_rate_limit_exceeded_total",
+				Help: "Total number of rate limit exceeded events.",
+			},
+			[]string{"endpoint"},
+		),
 		HTTPRequestsTotal: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "ezyshare_http_requests_total",
@@ -77,6 +85,7 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 			m.MessagesRelayed,
 			m.WebSocketConnections,
 			m.RoomsCreatedTotal,
+			m.RateLimitExceeded,
 			m.HTTPRequestsTotal,
 			m.HTTPRequestDuration,
 		)
