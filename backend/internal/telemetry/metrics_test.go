@@ -18,6 +18,22 @@ func TestMetricsRegistrationAndMiddleware(t *testing.T) {
 	if val := testutil.ToFloat64(metrics.ActivePeers); val != 1 {
 		t.Fatalf("expected ActivePeers 1, got %f", val)
 	}
+	metrics.ActivePeers.Dec()
+	if val := testutil.ToFloat64(metrics.ActivePeers); val != 0 {
+		t.Fatalf("expected ActivePeers 0, got %f", val)
+	}
+
+	metrics.MessagesRelayed.WithLabelValues("offer").Inc()
+	metrics.MessagesRelayed.WithLabelValues("answer").Inc()
+	if count := testutil.ToFloat64(metrics.MessagesRelayed.WithLabelValues("offer")); count != 1 {
+		t.Fatalf("expected MessagesRelayed offer 1, got %f", count)
+	}
+
+	metrics.WebSocketConnections.WithLabelValues("connected").Inc()
+	metrics.WebSocketConnections.WithLabelValues("disconnected").Inc()
+	if count := testutil.ToFloat64(metrics.WebSocketConnections.WithLabelValues("connected")); count != 1 {
+		t.Fatalf("expected WebSocketConnections connected 1, got %f", count)
+	}
 
 	handler := telemetry.HTTPMiddleware(metrics)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
