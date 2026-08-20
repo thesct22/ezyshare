@@ -16,9 +16,11 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"golang.org/x/time/rate"
 
 	"github.com/thesct22/ezyshare/backend/internal/config"
 	"github.com/thesct22/ezyshare/backend/internal/handler"
+	customMiddleware "github.com/thesct22/ezyshare/backend/internal/middleware"
 	"github.com/thesct22/ezyshare/backend/internal/signaling"
 	"github.com/thesct22/ezyshare/backend/internal/telemetry"
 )
@@ -43,19 +45,18 @@ func main() {
 
 	wsHandler := handler.NewHandler(hub, roomMgr, metrics, cfg.AllowedOrigins)
 
+	// IP Rate Limiters
+	apiLimiter := customMiddleware.NewIPRateLimiter(rate.Every(time.Minute/60), 20, metrics) // 60 req/min, burst 20
+	wsLimiter := customMiddleware.NewIPRateLimiter(rate.Every(time.Minute/10), 5, metrics)   // 10 WS upgrades/min, burst 5
+	defer apiLimiter.Stop()
+	defer wsLimiter.Stop()
+
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
-
-	r.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("X-Content-Type-Options", "nosniff")
-			w.Header().Set("X-Frame-Options", "DENY")
-			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-			next.ServeHTTP(w, r)
-		})
-	})
+	r.Use(customMiddleware.SecurityHeaders(cfg.AppEnv))
+	r.Use(customMiddleware.MaxBytesMiddleware(4 * 1024)) // Cap HTTP request body at 4KB
 
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   cfg.AllowedOrigins,
@@ -86,12 +87,12 @@ func main() {
 		})
 	})
 
-	r.Get("/ws", wsHandler.ServeWS)
-	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	r.With(customMiddleware.RateLimitMiddleware(wsLimiter, "ws_upgrade")).Get("/ws", wsHandler.ServeWS)
+	r.With(customMiddleware.RateLimitMiddleware(apiLimiter, "healthz")).Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
-	r.Get("/api/v1/ice-servers", handler.HandleICEServers)
+	r.With(customMiddleware.RateLimitMiddleware(apiLimiter, "ice_servers")).Get("/api/v1/ice-servers", handler.HandleICEServers)
 	r.Handle("/metrics", promhttp.Handler())
 
 	srv := &http.Server{
