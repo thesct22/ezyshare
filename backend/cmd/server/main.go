@@ -39,14 +39,15 @@ func main() {
 	hub := signaling.NewHub(metrics)
 	go hub.Start()
 
-	wsHandler := handler.NewHandler(hub, metrics, cfg.AllowedOrigins)
+	roomMgr := signaling.NewRoomManager(metrics)
+
+	wsHandler := handler.NewHandler(hub, roomMgr, metrics, cfg.AllowedOrigins)
 
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
 
-	// Security Headers Middleware
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -90,6 +91,7 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
+	r.Get("/api/v1/ice-servers", handler.HandleICEServers)
 	r.Handle("/metrics", promhttp.Handler())
 
 	srv := &http.Server{
@@ -121,6 +123,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	roomMgr.Stop()
 	hub.Stop()
 
 	slog.Info("Server shutdown completed cleanly.")

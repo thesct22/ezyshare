@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/thesct22/ezyshare/backend/internal/config"
 	"github.com/thesct22/ezyshare/backend/internal/handler"
 	"github.com/thesct22/ezyshare/backend/internal/signaling"
@@ -24,7 +25,9 @@ func setupTestRouter() http.Handler {
 	metrics := telemetry.NewMetrics(reg)
 	hub := signaling.NewHub(metrics)
 	go hub.Start()
-	wsHandler := handler.NewHandler(hub, metrics, cfg.AllowedOrigins)
+
+	roomMgr := signaling.NewRoomManager(metrics)
+	wsHandler := handler.NewHandler(hub, roomMgr, metrics, cfg.AllowedOrigins)
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -52,6 +55,7 @@ func setupTestRouter() http.Handler {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
+	r.Get("/api/v1/ice-servers", handler.HandleICEServers)
 	r.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
 
 	return r
@@ -89,6 +93,22 @@ func TestMetricsEndpoint(t *testing.T) {
 	body, _ := io.ReadAll(rec.Body)
 	if !strings.Contains(string(body), "ezyshare_active_peers") {
 		t.Fatalf("expected metrics response to contain ezyshare_active_peers")
+	}
+}
+
+func TestICEServersEndpoint(t *testing.T) {
+	router := setupTestRouter()
+	req := httptest.NewRequest("GET", "/api/v1/ice-servers", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rec.Code)
+	}
+	body, _ := io.ReadAll(rec.Body)
+	if !strings.Contains(string(body), "stun:") {
+		t.Fatalf("expected ice servers response to contain STUN URLs")
 	}
 }
 

@@ -32,14 +32,16 @@ func (c *wsClient) Close() error {
 
 type Handler struct {
 	hub            *signaling.Hub
+	roomMgr        *signaling.RoomManager
 	metrics        *telemetry.Metrics
 	allowedOrigins []string
 	upgrader       websocket.Upgrader
 }
 
-func NewHandler(hub *signaling.Hub, metrics *telemetry.Metrics, allowedOrigins []string) *Handler {
+func NewHandler(hub *signaling.Hub, roomMgr *signaling.RoomManager, metrics *telemetry.Metrics, allowedOrigins []string) *Handler {
 	h := &Handler{
 		hub:            hub,
+		roomMgr:        roomMgr,
 		metrics:        metrics,
 		allowedOrigins: allowedOrigins,
 	}
@@ -50,7 +52,6 @@ func NewHandler(hub *signaling.Hub, metrics *telemetry.Metrics, allowedOrigins [
 		CheckOrigin: func(r *http.Request) bool {
 			origin := r.Header.Get("Origin")
 			if origin == "" {
-				// Allow requests without Origin header (e.g. CLI or mobile apps)
 				return true
 			}
 			return config.IsOriginAllowed(origin, h.allowedOrigins)
@@ -98,6 +99,38 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		}
 
 		switch msg.Type {
+		case domain.TypeCreateRoom:
+			if client == nil && msg.SenderID != "" {
+				client = &wsClient{id: msg.SenderID, conn: conn}
+				h.hub.Register(client)
+			}
+			if client != nil && h.roomMgr != nil {
+				room, err := h.roomMgr.CreateRoom(msg.RoomID, client.ID())
+				if err != nil {
+					_ = client.Send(domain.SignalMessage{Type: domain.TypeError, Payload: err.Error()})
+				} else {
+					_, _ = h.roomMgr.JoinRoom(room.ID, client)
+					_ = client.Send(domain.SignalMessage{Type: domain.TypeRoomCreated, RoomID: room.ID, SenderID: client.ID()})
+				}
+			}
+
+		case domain.TypeJoinRoom:
+			if client == nil && msg.SenderID != "" {
+				client = &wsClient{id: msg.SenderID, conn: conn}
+				h.hub.Register(client)
+			}
+			if client != nil && h.roomMgr != nil {
+				_, err := h.roomMgr.JoinRoom(msg.RoomID, client)
+				if err != nil {
+					_ = client.Send(domain.SignalMessage{Type: domain.TypeError, Payload: err.Error()})
+				}
+			}
+
+		case domain.TypeLeaveRoom:
+			if client != nil && h.roomMgr != nil && msg.RoomID != "" {
+				h.roomMgr.LeaveRoom(msg.RoomID, client.ID())
+			}
+
 		case domain.TypeJoin:
 			if msg.SenderID == "" {
 				slog.Warn("Join attempt missing senderId")
@@ -122,11 +155,17 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 			}
 
 			msg.SenderID = client.ID()
-			if err := h.hub.Relay(msg); err != nil {
-				if errors.Is(err, signaling.ErrPeerNotFound) {
-					slog.Debug("Failed to relay message: target not found", "targetId", msg.TargetID)
-				} else {
-					slog.Error("Error relaying signal message", "error", err, "targetId", msg.TargetID)
+			if msg.RoomID != "" && h.roomMgr != nil {
+				if err := h.roomMgr.RelayRoomSignal(msg.RoomID, msg); err != nil {
+					slog.Debug("Failed to relay room signal", "room_id", msg.RoomID, "error", err)
+				}
+			} else {
+				if err := h.hub.Relay(msg); err != nil {
+					if errors.Is(err, signaling.ErrPeerNotFound) {
+						slog.Debug("Failed to relay message: target not found", "targetId", msg.TargetID)
+					} else {
+						slog.Error("Error relaying signal message", "error", err, "targetId", msg.TargetID)
+					}
 				}
 			}
 

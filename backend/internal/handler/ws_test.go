@@ -22,7 +22,8 @@ func setupTestServer() (*httptest.Server, *signaling.Hub, *telemetry.Metrics) {
 	hub := signaling.NewHub(metrics)
 	go hub.Start()
 
-	wsHandler := handler.NewHandler(hub, metrics, []string{"*"})
+	roomMgr := signaling.NewRoomManager(metrics)
+	wsHandler := handler.NewHandler(hub, roomMgr, metrics, []string{"*"})
 
 	ts := httptest.NewServer(http.HandlerFunc(wsHandler.ServeWS))
 	return ts, hub, metrics
@@ -41,7 +42,8 @@ func TestWebSocketOriginValidation(t *testing.T) {
 	go hub.Start()
 	defer hub.Stop()
 
-	wsHandler := handler.NewHandler(hub, metrics, []string{"https://sharath.is-a.dev"})
+	roomMgr := signaling.NewRoomManager(metrics)
+	wsHandler := handler.NewHandler(hub, roomMgr, metrics, []string{"https://sharath.is-a.dev"})
 	ts := httptest.NewServer(http.HandlerFunc(wsHandler.ServeWS))
 	defer ts.Close()
 
