@@ -10,12 +10,14 @@ import (
 )
 
 type Metrics struct {
-	// Gauge metric
+	// Gauge metrics
 	ActivePeers prometheus.Gauge
+	ActiveRooms prometheus.Gauge
 	// Counter metrics
 	MessagesRelayed      *prometheus.CounterVec
 	WebSocketConnections *prometheus.CounterVec
 	HTTPRequestsTotal    *prometheus.CounterVec
+	RoomsCreatedTotal    *prometheus.CounterVec
 	// Histogram metric
 	HTTPRequestDuration *prometheus.HistogramVec
 }
@@ -25,6 +27,10 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 		ActivePeers: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "ezyshare_active_peers",
 			Help: "Current number of active WebRTC signaling peers connected.",
+		}),
+		ActiveRooms: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "ezyshare_active_rooms",
+			Help: "Current number of active transient signaling rooms.",
 		}),
 		MessagesRelayed: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
@@ -39,6 +45,13 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 				Help: "Total number of WebSocket connection events.",
 			},
 			[]string{"status"},
+		),
+		RoomsCreatedTotal: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "ezyshare_rooms_created_total",
+				Help: "Total number of rooms created.",
+			},
+			[]string{"type"},
 		),
 		HTTPRequestsTotal: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
@@ -60,8 +73,10 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 	if reg != nil {
 		reg.MustRegister(
 			m.ActivePeers,
+			m.ActiveRooms,
 			m.MessagesRelayed,
 			m.WebSocketConnections,
+			m.RoomsCreatedTotal,
 			m.HTTPRequestsTotal,
 			m.HTTPRequestDuration,
 		)
