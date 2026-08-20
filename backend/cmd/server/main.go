@@ -17,30 +17,47 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/thesct22/ezyshare/backend/internal/config"
 	"github.com/thesct22/ezyshare/backend/internal/handler"
 	"github.com/thesct22/ezyshare/backend/internal/signaling"
 	"github.com/thesct22/ezyshare/backend/internal/telemetry"
 )
 
 func main() {
-	logLevel := os.Getenv("LOG_LEVEL")
-	logFormat := os.Getenv("LOG_FORMAT")
-	_ = telemetry.InitLogger(logLevel, logFormat)
+	cfg := config.LoadConfig()
+
+	_ = telemetry.InitLogger(cfg.LogLevel, cfg.LogFormat)
+
+	slog.Info("Configuration loaded",
+		"env", cfg.AppEnv,
+		"port", cfg.Port,
+		"allowed_origins", cfg.AllowedOrigins,
+	)
 
 	metrics := telemetry.NewMetrics(prometheus.DefaultRegisterer)
 
 	hub := signaling.NewHub(metrics)
 	go hub.Start()
 
-	wsHandler := handler.NewHandler(hub, metrics)
+	wsHandler := handler.NewHandler(hub, metrics, cfg.AllowedOrigins)
 
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
 
+	// Security Headers Middleware
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			w.Header().Set("X-Frame-Options", "DENY")
+			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+			next.ServeHTTP(w, r)
+		})
+	})
+
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"https://*", "http://localhost:*"},
+		AllowedOrigins:   cfg.AllowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
@@ -75,13 +92,8 @@ func main() {
 	})
 	r.Handle("/metrics", promhttp.Handler())
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
 	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%s", port),
+		Addr:         fmt.Sprintf(":%s", cfg.Port),
 		Handler:      r,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
@@ -89,7 +101,7 @@ func main() {
 	}
 
 	go func() {
-		slog.Info("Starting server", "addr", srv.Addr)
+		slog.Info("Starting server", "addr", srv.Addr, "env", cfg.AppEnv)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("Server failed to start", "error", err)
 		}
