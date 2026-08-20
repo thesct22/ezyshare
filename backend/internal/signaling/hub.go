@@ -6,24 +6,26 @@ import (
 	"sync"
 
 	"github.com/thesct22/ezyshare/backend/internal/domain"
+	"github.com/thesct22/ezyshare/backend/internal/telemetry"
 )
 
 var ErrPeerNotFound = errors.New("target peer not registered")
 
 // Hub manages active peer connections thread-safely.
 type Hub struct {
-	mu       sync.RWMutex //Mutex prevents race conditions when multiple goroutines access the peers map.
+	mu       sync.RWMutex
 	peers    map[string]domain.Client
 	messages chan domain.SignalMessage
 	quit     chan struct{}
+	metrics  *telemetry.Metrics
 }
 
-func NewHub() *Hub {
+func NewHub(metrics *telemetry.Metrics) *Hub {
 	return &Hub{
 		peers:    make(map[string]domain.Client),
 		messages: make(chan domain.SignalMessage),
-		quit:     make(chan struct{}), //quit is a channel used to signal the hub to stop. Any signal sent to this channel will cause the hub to close all connections and exit its main loop.
-
+		quit:     make(chan struct{}),
+		metrics:  metrics,
 	}
 }
 
@@ -32,6 +34,9 @@ func (h *Hub) Register(client domain.Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.peers[client.ID()] = client
+	if h.metrics != nil {
+		h.metrics.ActivePeers.Inc()
+	}
 	slog.Info("Peer registered in hub", "peer_id", client.ID())
 }
 
@@ -41,6 +46,9 @@ func (h *Hub) Unregister(client domain.Client) {
 	defer h.mu.Unlock()
 	if _, exists := h.peers[client.ID()]; exists {
 		delete(h.peers, client.ID())
+		if h.metrics != nil {
+			h.metrics.ActivePeers.Dec()
+		}
 		slog.Info("Peer unregistered from hub", "peer_id", client.ID())
 	}
 }
@@ -56,22 +64,23 @@ func (h *Hub) Relay(msg domain.SignalMessage) error {
 		return ErrPeerNotFound
 	}
 
-	return target.Send(msg)
+	err := target.Send(msg)
+	if err == nil && h.metrics != nil {
+		h.metrics.MessagesRelayed.WithLabelValues(string(msg.Type)).Inc()
+	}
+	return err
 }
 
 // Start launches the Hub's main event loop in a goroutine.
-// It listens for incoming messages and handles termination signals.
 func (h *Hub) Start() {
 	slog.Info("Hub event loop started")
 	for {
 		select {
 		case msg := <-h.messages:
-			// Process and relay messages from the channel
 			if err := h.Relay(msg); err != nil {
 				slog.Error("Failed to relay message", "error", err)
 			}
 		case <-h.quit:
-			// Shutdown signal received! Close all connections and exit loop.
 			slog.Info("Shutdown signal received. Closing all peer connections...")
 			h.closeAllConnections()
 			slog.Info("Hub event loop terminated")
@@ -94,6 +103,9 @@ func (h *Hub) closeAllConnections() {
 		if err := client.Close(); err != nil {
 			slog.Error("Failed to close peer connection", "peer_id", id, "error", err)
 		}
-		delete(h.peers, id) //Remove the peer from the map after closing the connection
+		delete(h.peers, id)
+		if h.metrics != nil {
+			h.metrics.ActivePeers.Dec()
+		}
 	}
 }
