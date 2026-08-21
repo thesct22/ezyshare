@@ -10,6 +10,7 @@ import (
 
 	"github.com/thesct22/ezyshare/backend/internal/config"
 	"github.com/thesct22/ezyshare/backend/internal/domain"
+	"github.com/thesct22/ezyshare/backend/internal/middleware"
 	"github.com/thesct22/ezyshare/backend/internal/signaling"
 	"github.com/thesct22/ezyshare/backend/internal/telemetry"
 )
@@ -120,6 +121,18 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		if err := conn.ReadJSON(&msg); err != nil {
 			slog.Debug("WebSocket connection closed or read error", "error", err)
 			break
+		}
+
+		// Authorized Production Chaos Hook for WebSocket signaling frames
+		if middleware.IsAuthorizedChaosRequest(r) {
+			delay := middleware.GetChaosLatency(r)
+			if delay > 0 {
+				time.Sleep(delay)
+			}
+			if middleware.ShouldDropWebSocketFrame(r) {
+				slog.Warn("🔥 Production Chaos: Dropping WebSocket Signaling Frame", "peer_id", msg.SenderID, "type", msg.Type)
+				continue
+			}
 		}
 
 		switch msg.Type {
