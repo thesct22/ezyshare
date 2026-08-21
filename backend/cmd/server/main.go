@@ -45,9 +45,24 @@ func main() {
 
 	wsHandler := handler.NewHandler(hub, roomMgr, metrics, cfg.AllowedOrigins)
 
-	// IP Rate Limiters
-	apiLimiter := customMiddleware.NewIPRateLimiter(rate.Every(time.Minute/60), 20, metrics) // 60 req/min, burst 20
-	wsLimiter := customMiddleware.NewIPRateLimiter(rate.Every(time.Minute/10), 5, metrics)   // 10 WS upgrades/min, burst 5
+	// IP Rate Limiters (environment-adjusted to prevent dev multi-tab connection drops)
+	var apiRate, wsRate rate.Limit
+	var apiBurst, wsBurst int
+
+	if cfg.AppEnv == "dev" {
+		apiRate = rate.Every(time.Minute / 300)
+		apiBurst = 100
+		wsRate = rate.Every(time.Minute / 120)
+		wsBurst = 30
+	} else {
+		apiRate = rate.Every(time.Minute / 120)
+		apiBurst = 30
+		wsRate = rate.Every(time.Minute / 30)
+		wsBurst = 10
+	}
+
+	apiLimiter := customMiddleware.NewIPRateLimiter(apiRate, apiBurst, metrics)
+	wsLimiter := customMiddleware.NewIPRateLimiter(wsRate, wsBurst, metrics)
 	defer apiLimiter.Stop()
 	defer wsLimiter.Stop()
 
