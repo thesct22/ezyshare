@@ -79,7 +79,7 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 
 	// Heartbeat Ping/Pong setup to prune dead TCP connections
 	pingPeriod := 30 * time.Second
-	pongWait := 60 * time.Second
+	pongWait := 120 * time.Second
 	writeWait := 10 * time.Second
 
 	_ = conn.SetReadDeadline(time.Now().Add(pongWait))
@@ -122,6 +122,9 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 			slog.Debug("WebSocket connection closed or read error", "error", err)
 			break
 		}
+
+		// Refresh read deadline on every active message
+		_ = conn.SetReadDeadline(time.Now().Add(pongWait))
 
 		// Authorized Production Chaos Hook for WebSocket signaling frames
 		if middleware.IsAuthorizedChaosRequest(r) {
