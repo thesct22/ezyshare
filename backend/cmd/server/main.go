@@ -56,12 +56,13 @@ func main() {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
 	r.Use(customMiddleware.SecurityHeaders(cfg.AppEnv))
-	r.Use(customMiddleware.MaxBytesMiddleware(4 * 1024)) // Cap HTTP request body at 4KB
+	r.Use(customMiddleware.MaxBytesMiddleware(4 * 1024))
+	r.Use(customMiddleware.ChaosMiddleware(metrics))
 
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   cfg.AllowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Chaos-Secret", "X-Chaos-Latency-Ms", "X-Chaos-Error-Rate"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
 		MaxAge:           300,
