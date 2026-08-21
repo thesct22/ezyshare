@@ -8,6 +8,7 @@ export class WebRTCManager {
   private pc: RTCPeerConnection | null = null;
   private dataChannel: RTCDataChannel | null = null;
   private reconnectTimer: number | null = null;
+  private isDisposed = false;
   public myPeerId: string;
   public currentRoomId: string = '';
   public roomPassword: string = '';
@@ -72,6 +73,7 @@ export class WebRTCManager {
   }
 
   public connectSignaling(wsUrl?: string) {
+    this.isDisposed = false;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -81,11 +83,12 @@ export class WebRTCManager {
     this.onStatusChangeCB?.('connecting');
 
     try {
-      this.ws = new WebSocket(url);
+      const ws = new WebSocket(url);
+      this.ws = ws;
 
-      this.ws.onopen = () => {
+      ws.onopen = () => {
+        if (this.isDisposed) return;
         this.onStatusChangeCB?.('signaling_ready');
-        // Re-join/re-create room if reconnecting
         if (this.currentRoomId) {
           if (this.isHost) {
             this.createRoom(this.currentRoomId, this.roomPassword);
@@ -95,7 +98,8 @@ export class WebRTCManager {
         }
       };
 
-      this.ws.onmessage = async (event) => {
+      ws.onmessage = async (event) => {
+        if (this.isDisposed) return;
         try {
           const msg: SignalMessage = JSON.parse(event.data);
           await this.handleSignalMessage(msg);
@@ -104,26 +108,32 @@ export class WebRTCManager {
         }
       };
 
-      this.ws.onclose = () => {
+      ws.onclose = () => {
+        if (this.isDisposed) return;
         this.onStatusChangeCB?.('disconnected');
-        // Schedule auto-reconnect if unexpectedly closed
         this.scheduleReconnect(url);
       };
 
-      this.ws.onerror = (err) => {
+      ws.onerror = (err) => {
+        if (this.isDisposed) return;
         console.error('WebSocket error:', err);
         this.onStatusChangeCB?.('disconnected');
       };
     } catch (err) {
-      console.error('WebSocket instantiation error:', err);
-      this.scheduleReconnect(url);
+      if (!this.isDisposed) {
+        console.error('WebSocket instantiation error:', err);
+        this.scheduleReconnect(url);
+      }
     }
   }
 
   private scheduleReconnect(url: string) {
+    if (this.isDisposed) return;
     if (!this.reconnectTimer) {
       this.reconnectTimer = window.setTimeout(() => {
-        this.connectSignaling(url);
+        if (!this.isDisposed) {
+          this.connectSignaling(url);
+        }
       }, 3000);
     }
   }
@@ -521,14 +531,35 @@ export class WebRTCManager {
   }
 
   public disconnectAll() {
+    this.isDisposed = true;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
     this.closePeerConnection();
+
     if (this.ws) {
-      this.ws.close();
+      const socket = this.ws;
       this.ws = null;
+
+      // Detach event listeners so React StrictMode double-unmount in DEV mode doesn't log errors
+      socket.onopen = null;
+      socket.onmessage = null;
+      socket.onerror = null;
+      socket.onclose = null;
+
+      if (socket.readyState === WebSocket.CONNECTING) {
+        // If connection is still opening, close safely on next event tick
+        setTimeout(() => {
+          try {
+            socket.close();
+          } catch (_) {}
+        }, 50);
+      } else {
+        try {
+          socket.close();
+        } catch (_) {}
+      }
     }
   }
 }
