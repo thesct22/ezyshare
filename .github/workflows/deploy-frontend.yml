@@ -44,5 +44,4 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./frontend/dist
-          # If you have a custom domain, uncomment the line below and set your domain:
-          # cname: ezyshare.yourdomain.com
+          cname: sharath.is-a.dev
