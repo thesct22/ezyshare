@@ -55,14 +55,26 @@ export class WebRTCManager {
     this.onRoomCreatedCB = onRoomCreated;
   }
 
+  private getDefaultAPIUrl(): string {
+    if (import.meta.env.VITE_API_URL) {
+      return import.meta.env.VITE_API_URL;
+    }
+    if (import.meta.env.VITE_WS_URL) {
+      return import.meta.env.VITE_WS_URL
+        .replace(/^wss:/, 'https:')
+        .replace(/^ws:/, 'http:')
+        .replace(/\/ws\/?$/, '');
+    }
+    const protocol = window.location.protocol;
+    const host = window.location.hostname;
+    const isDevPort = window.location.port !== '' && window.location.port !== '8080';
+    const targetPort = isDevPort ? '8080' : window.location.port;
+    return `${protocol}//${host}${targetPort ? `:${targetPort}` : ''}`;
+  }
+
   public async fetchICEServers(): Promise<RTCConfiguration> {
     try {
-      const protocol = window.location.protocol;
-      const host = window.location.hostname;
-      const isDevPort = window.location.port !== '' && window.location.port !== '8080';
-      const targetPort = isDevPort ? '8080' : window.location.port;
-      const baseUrl = `${protocol}//${host}${targetPort ? `:${targetPort}` : ''}`;
-      
+      const baseUrl = this.getDefaultAPIUrl();
       const response = await fetch(`${baseUrl}/api/v1/ice-servers`);
       if (response.ok) {
         const data = await response.json();
