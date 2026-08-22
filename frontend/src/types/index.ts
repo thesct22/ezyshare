@@ -10,6 +10,8 @@ export type MessageType =
   | 'peer_joined'
   | 'peer_left'
   | 'room_created'
+  | 'remove_peer'
+  | 'kicked'
   | 'error';
 
 export interface SignalMessage {
@@ -43,11 +45,13 @@ export interface TransferProgressState {
 export type ConnectionStatus =
   | 'disconnected'
   | 'connecting'
+  | 'joining'
   | 'signaling_ready'
   | 'in_room'
   | 'authenticating'
   | 'auth_failed'
   | 'join_error'
+  | 'kicked'
   | 'p2p_connected';
 
 export interface ICEServerConfig {

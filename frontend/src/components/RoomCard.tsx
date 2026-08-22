@@ -16,6 +16,7 @@ import {
   DialogActions,
   IconButton,
   Alert,
+  CircularProgress,
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
@@ -24,6 +25,7 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
+import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import { QRCodeSVG } from 'qrcode.react';
 import type { ConnectionStatus } from '../types';
 
@@ -33,6 +35,7 @@ interface RoomCardProps {
   onCreateRoom: (customRoomId?: string, password?: string) => void;
   onJoinRoom: (roomId: string, password?: string) => void;
   onLeaveRoom: () => void;
+  onRemovePeer?: () => void;
   status: ConnectionStatus;
 }
 
@@ -41,6 +44,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   onCreateRoom,
   onJoinRoom,
   onLeaveRoom,
+  onRemovePeer,
   status,
 }) => {
   const [tabIndex, setTabIndex] = useState(0);
@@ -50,6 +54,13 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   const [usePassword, setUsePassword] = useState(false);
   const [copied, setCopied] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+
+  useEffect(() => {
+    if (status !== 'joining') {
+      setIsJoining(false);
+    }
+  }, [status]);
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -69,7 +80,8 @@ export const RoomCard: React.FC<RoomCardProps> = ({
 
   const handleJoinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (joinRoomIDInput.trim()) {
+    if (joinRoomIDInput.trim() && !isJoining && status !== 'joining') {
+      setIsJoining(true);
       onJoinRoom(joinRoomIDInput.trim(), passwordInput.trim() || undefined);
     }
   };
@@ -166,6 +178,18 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                 {status === 'in_room' || status === 'p2p_connected' ? 'Room Active' : 'Create Room'}
               </Button>
 
+              {(status === 'in_room' || status === 'p2p_connected') && tabIndex === 0 && onRemovePeer && (
+                <Button
+                  variant="outlined"
+                  color="warning"
+                  size="large"
+                  onClick={onRemovePeer}
+                  startIcon={<PersonRemoveIcon />}
+                >
+                  Remove Connected Peer
+                </Button>
+              )}
+
               {(status === 'in_room' || status === 'p2p_connected') && tabIndex === 0 && (
                 <Button
                   variant="outlined"
@@ -246,7 +270,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                 placeholder="e.g. my-awesome-room or room-x89f2a"
                 value={joinRoomIDInput}
                 onChange={(e) => setJoinRoomIDInput(e.target.value)}
-                disabled={status === 'p2p_connected'}
+                disabled={status === 'p2p_connected' || status === 'joining' || isJoining}
                 required
               />
 
@@ -257,18 +281,22 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                 placeholder="Enter password"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
-                disabled={status === 'p2p_connected'}
+                disabled={status === 'p2p_connected' || status === 'joining' || isJoining}
               />
 
               <Button
                 type="submit"
                 variant="contained"
                 size="large"
-                disabled={!joinRoomIDInput.trim() || status === 'p2p_connected' || status === 'authenticating'}
-                endIcon={<ArrowForwardIcon />}
+                disabled={!joinRoomIDInput.trim() || status === 'p2p_connected' || status === 'authenticating' || status === 'joining' || isJoining}
+                endIcon={isJoining || status === 'joining' ? <CircularProgress size={20} color="inherit" /> : <ArrowForwardIcon />}
                 sx={{ minWidth: 160 }}
               >
-                {status === 'p2p_connected' ? 'Connected' : 'Join Room'}
+                {status === 'p2p_connected'
+                  ? 'Connected'
+                  : isJoining || status === 'joining'
+                  ? 'Joining...'
+                  : 'Join Room'}
               </Button>
 
               {status === 'p2p_connected' && tabIndex === 1 && (
@@ -287,6 +315,12 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             {status === 'auth_failed' && (
               <Alert severity="error" sx={{ borderRadius: 3, mt: 2 }}>
                 Authentication Failed: The room password you entered is incorrect. Please check the password and try again.
+              </Alert>
+            )}
+
+            {status === 'kicked' && (
+              <Alert severity="warning" sx={{ borderRadius: 3, mt: 2 }}>
+                You were removed from the room by the host.
               </Alert>
             )}
 

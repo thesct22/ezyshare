@@ -67,6 +67,12 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleRemovePeer = () => {
+    if (rtcRef.current) {
+      rtcRef.current.removePeer();
+    }
+  };
+
   const handleAddFiles = (files: File[]) => {
     if (rtcRef.current) {
       const newMetaList: FileMetadata[] = [];
@@ -140,6 +146,7 @@ export const App: React.FC = () => {
             onCreateRoom={handleCreateRoom}
             onJoinRoom={handleJoinRoom}
             onLeaveRoom={handleLeaveRoom}
+            onRemovePeer={handleRemovePeer}
             status={status}
           />
 

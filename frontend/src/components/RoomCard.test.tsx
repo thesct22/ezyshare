@@ -66,4 +66,41 @@ describe('RoomCard Component', () => {
     fireEvent.click(closeRoomBtn);
     expect(onLeaveRoom).toHaveBeenCalledTimes(1);
   });
+
+  it('displays Remove Connected Peer button when host is in room and calls onRemovePeer', () => {
+    const onRemovePeer = vi.fn();
+    render(
+      <RoomCard
+        {...defaultProps}
+        currentRoomId="active-room"
+        status="in_room"
+        onRemovePeer={onRemovePeer}
+      />
+    );
+
+    const removePeerBtn = screen.getByRole('button', { name: /remove connected peer/i });
+    expect(removePeerBtn).toBeInTheDocument();
+
+    fireEvent.click(removePeerBtn);
+    expect(onRemovePeer).toHaveBeenCalledTimes(1);
+  });
+
+  it('immediately disables Join Room button when submitted', () => {
+    const onJoinRoom = vi.fn();
+    render(<RoomCard {...defaultProps} onJoinRoom={onJoinRoom} />);
+
+    const joinTab = screen.getByText('Join Existing Room');
+    fireEvent.click(joinTab);
+
+    const input = screen.getByLabelText(/room id/i);
+    fireEvent.change(input, { target: { value: 'target-room-789' } });
+
+    const joinBtn = screen.getByRole('button', { name: /join room/i });
+    expect(joinBtn).not.toBeDisabled();
+
+    fireEvent.click(joinBtn);
+
+    const joiningBtn = screen.getByRole('button', { name: /joining/i });
+    expect(joiningBtn).toBeDisabled();
+  });
 });

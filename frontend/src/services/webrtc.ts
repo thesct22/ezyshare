@@ -191,11 +191,31 @@ export class WebRTCManager {
     this.authFailed = false;
     this.currentRoomId = roomId;
     this.roomPassword = password || '';
+    this.onStatusChangeCB?.('joining');
     this.sendSignal({
       type: 'join_room',
       sender_id: this.myPeerId,
       room_id: roomId,
     });
+  }
+
+  public removePeer(targetPeerId?: string) {
+    const target = targetPeerId || this.targetPeerId;
+    if (this.currentRoomId && target) {
+      this.sendSignal({
+        type: 'remove_peer',
+        sender_id: this.myPeerId,
+        target_id: target,
+        room_id: this.currentRoomId,
+      });
+    }
+    this.closePeerConnection();
+    this.targetPeerId = '';
+    if (this.isHost && this.currentRoomId) {
+      this.onStatusChangeCB?.('in_room');
+    } else {
+      this.leaveRoom();
+    }
   }
 
   public leaveRoom() {
@@ -242,8 +262,15 @@ export class WebRTCManager {
         await this.handleCandidate(msg.payload);
         break;
 
+      case 'kicked':
+        this.currentRoomId = '';
+        this.targetPeerId = '';
+        this.closePeerConnection();
+        this.onStatusChangeCB?.('kicked');
+        break;
+
       case 'peer_left':
-        if (msg.sender_id === this.targetPeerId) {
+        if (msg.sender_id === this.targetPeerId || !this.targetPeerId) {
           this.closePeerConnection();
           this.targetPeerId = '';
           this.onStatusChangeCB?.(this.isHost ? 'in_room' : 'signaling_ready');
