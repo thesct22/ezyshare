@@ -170,3 +170,69 @@ Whenever you make updates to your Go backend code, deploy the new revision using
    ```bash
    terraform apply
    ```
+
+---
+
+## Continuous Integration & Continuous Deployment (CI/CD)
+
+The repository includes three automated GitHub Actions workflows in `.github/workflows/` pinned to immutable commit SHAs:
+
+### Workflows Overview
+
+1. **`deploy-frontend.yml` (Frontend Deployment to GitHub Pages)**
+   - **Trigger:** Automated on `push` to `main` when code under `frontend/**` changes.
+   - **Actions:** Builds the Vite React SPA, injects the backend WebSocket (`wss://${{ secrets.BACKEND_CNAME }}/ws`) and API URLs, and deploys the static build + `CNAME` directly to the `gh-pages` branch.
+
+2. **`deploy-backend.yml` (Backend Continuous Deployment to Cloud Run)**
+   - **Trigger:** Automated on `push` to `main` when code under `backend/**` changes, or manually via `workflow_dispatch`.
+   - **Actions:** Authenticates keylessly to GCP via Workload Identity Federation (WIF), builds the multi-stage Go container image, tags it with `${{ github.sha }}` and `latest`, pushes to GCP Artifact Registry, and updates the live Cloud Run service revision.
+
+3. **`terraform-infra.yml` (Infrastructure Management)**
+   - **Trigger:** Manual trigger via `workflow_dispatch` (allowing admins to choose `plan` or `apply` from the GitHub Actions UI) or reusable via `workflow_call`.
+   - **Actions:** Authenticates keylessly to GCP via WIF, initializes Terraform against your remote GCS state bucket (`${{ secrets.GCP_TFSTATE_BUCKET }}`), and executes `terraform plan` or `terraform apply -auto-approve`.
+
+---
+
+### Configuring GitHub Repository Secrets
+
+To enable the workflows, add the following 5 secrets in your GitHub Repository under **Settings -> Secrets and variables -> Actions**:
+
+| Secret Name | Description | Example / Format |
+| :--- | :--- | :--- |
+| **`BACKEND_CNAME`** | Cloud Run backend service hostname (without `https://`) | `<service-id>.<region>.run.app` |
+| **`GCP_PROJECT_ID`** | Your Google Cloud Project ID | `<your-project-id>` |
+| **`GCP_SERVICE_ACCOUNT`** | Email of the deployment service account | `github-actions-bot@<your-project-id>.iam.gserviceaccount.com` |
+| **`GCP_WORKLOAD_IDENTITY_PROVIDER`** | Full resource path of the WIF Provider | `projects/<project-number>/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider` |
+| **`GCP_TFSTATE_BUCKET`** | Name of the GCS bucket storing Terraform state | `<your-project-id>-tfstate` |
+
+---
+
+### How to Retrieve Secret Values Using `gcloud` CLI
+
+Run these commands in your local shell to get the exact values for your GitHub secrets:
+
+```bash
+# 1. Get GCP_PROJECT_ID
+gcloud config get-value project
+
+# 2. Get GCP_WORKLOAD_IDENTITY_PROVIDER
+gcloud iam workload-identity-pools providers describe github-provider \
+    --location="global" \
+    --workload-identity-pool="github-actions-pool" \
+    --format="value(name)"
+
+# 3. Get GCP_SERVICE_ACCOUNT
+gcloud iam service-accounts list \
+    --filter="name:github-actions-bot" \
+    --format="value(email)"
+
+# 4. Get GCP_TFSTATE_BUCKET
+# This is the bucket name created during setup: gs://<your-project-id>-tfstate
+echo "<your-project-id>-tfstate"
+
+# 5. Get BACKEND_CNAME
+gcloud run services describe ezyshare-backend \
+    --region=us-central1 \
+    --format="value(status.url)" | sed 's|https://||'
+```
+
