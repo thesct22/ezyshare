@@ -33,8 +33,8 @@ jobs:
 
       - name: Build Static Site
         env:
-          VITE_WS_URL: "wss://ezyshare-backend-375411068753.us-central1.run.app/ws"
-          VITE_API_URL: "https://ezyshare-backend-375411068753.us-central1.run.app"
+          VITE_WS_URL: "wss://${{ secrets.BACKEND_CNAME }}/ws"
+          VITE_API_URL: "https://${{ secrets.BACKEND_CNAME }}"
         run: |
           cd frontend
           npm run build
