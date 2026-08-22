@@ -1,0 +1,13 @@
+# 1. Ignore the provider binaries & local cache directory
+.terraform/
+# 2. Ignore local state files (since we use GCS remote backend)
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+# 3. Ignore sensitive local variable files
+terraform.tfvars
+*.tfvars
+!terraform.tfvars.example
+# 4. Ignore crash logs
+crash.log
+crash.*.log
