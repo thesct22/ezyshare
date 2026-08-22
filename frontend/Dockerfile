@@ -30,6 +30,12 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 # ---------------------------------------------
 FROM nginxinc/nginx-unprivileged:alpine AS prod
 
+LABEL org.opencontainers.image.title="EzyShare Frontend" \
+      org.opencontainers.image.description="React & MUI Web App for EzyShare Zero-Knowledge File Sharing" \
+      org.opencontainers.image.source="https://github.com/thesct22/ezyshare" \
+      org.opencontainers.image.url="https://github.com/thesct22/ezyshare" \
+      org.opencontainers.image.licenses="MIT"
+
 # Switch to root to configure the container
 USER root
 

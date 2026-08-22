@@ -33,6 +33,12 @@ CMD ["go", "run", "./cmd/server"]
 # ---------------------------------------------
 FROM gcr.io/distroless/static-debian12:latest AS prod
 
+LABEL org.opencontainers.image.title="EzyShare Backend" \
+      org.opencontainers.image.description="Zero-Knowledge WebRTC P2P File Sharing Signaling Server" \
+      org.opencontainers.image.source="https://github.com/thesct22/ezyshare" \
+      org.opencontainers.image.url="https://github.com/thesct22/ezyshare" \
+      org.opencontainers.image.licenses="MIT"
+
 # Copy binary from builder
 COPY --from=builder /go/bin/server /server
 # Copy timezones and CA certs
