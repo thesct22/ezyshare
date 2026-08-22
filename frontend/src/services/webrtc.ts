@@ -209,6 +209,7 @@ export class WebRTCManager {
     this.currentRoomId = '';
     this.roomPassword = '';
     this.targetPeerId = '';
+    this.isHost = false;
     this.closePeerConnection();
     this.onStatusChangeCB?.('signaling_ready');
   }
