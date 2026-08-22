@@ -86,14 +86,14 @@ func (rm *RoomManager) JoinRoom(roomID string, client domain.Client) (*domain.Ro
 		return nil, ErrRoomNotFound
 	}
 
+	// Check if host is present in the room (or if client joining is the host)
+	if room.PeerCount() == 0 && client.ID() != room.HostID {
+		return nil, ErrRoomNotFound
+	}
+
 	// Idempotent join check: allow re-joining if peer is already in room
 	if !room.HasPeer(client.ID()) && room.PeerCount() >= MaxPeersPerRoom {
 		return nil, ErrRoomFull
-	}
-
-	// If room was empty (e.g. host reconnected), reassign host ID to this client
-	if room.PeerCount() == 0 {
-		room.HostID = client.ID()
 	}
 
 	room.AddPeer(client)

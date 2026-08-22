@@ -10,6 +10,7 @@ export class WebRTCManager {
   private reconnectTimer: number | null = null;
   private joinTimeoutTimer: number | null = null;
   private pendingSignalQueue: SignalMessage[] = [];
+  private pendingIceCandidates: RTCIceCandidateInit[] = [];
   private isDisposed = false;
   private authFailed = false;
   public myPeerId: string;
@@ -75,14 +76,18 @@ export class WebRTCManager {
   }
 
   public async fetchICEServers(): Promise<RTCConfiguration> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
     try {
       const baseUrl = this.getDefaultAPIUrl();
-      const response = await fetch(`${baseUrl}/api/v1/ice-servers`);
+      const response = await fetch(`${baseUrl}/api/v1/ice-servers`, { signal: controller.signal });
+      clearTimeout(timeoutId);
       if (response.ok) {
         const data = await response.json();
         return { iceServers: data.iceServers };
       }
     } catch (err) {
+      clearTimeout(timeoutId);
       console.warn('Failed to fetch custom ICE servers from backend, falling back to Google STUN:', err);
     }
     return {
@@ -361,6 +366,8 @@ export class WebRTCManager {
     };
 
     await this.pc!.setRemoteDescription(new RTCSessionDescription(offer));
+    await this.processPendingIceCandidates();
+
     const answer = await this.pc!.createAnswer();
     await this.pc!.setLocalDescription(answer);
 
@@ -376,12 +383,35 @@ export class WebRTCManager {
   private async handleAnswer(answer: RTCSessionDescriptionInit) {
     if (this.pc) {
       await this.pc.setRemoteDescription(new RTCSessionDescription(answer));
+      await this.processPendingIceCandidates();
     }
   }
 
   private async handleCandidate(candidate: RTCIceCandidateInit) {
-    if (this.pc && candidate) {
-      await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
+    if (!candidate) return;
+    if (this.pc && this.pc.remoteDescription && this.pc.remoteDescription.type) {
+      try {
+        await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.warn('Error adding ICE candidate:', err);
+      }
+    } else {
+      this.pendingIceCandidates.push(candidate);
+    }
+  }
+
+  private async processPendingIceCandidates() {
+    if (this.pc && this.pc.remoteDescription && this.pc.remoteDescription.type) {
+      while (this.pendingIceCandidates.length > 0) {
+        const cand = this.pendingIceCandidates.shift();
+        if (cand) {
+          try {
+            await this.pc.addIceCandidate(new RTCIceCandidate(cand));
+          } catch (err) {
+            console.warn('Error adding queued ICE candidate:', err);
+          }
+        }
+      }
     }
   }
 
@@ -643,6 +673,7 @@ export class WebRTCManager {
   }
 
   public closePeerConnection() {
+    this.pendingIceCandidates = [];
     if (this.dataChannel) {
       this.dataChannel.close();
       this.dataChannel = null;

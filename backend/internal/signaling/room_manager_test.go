@@ -23,6 +23,7 @@ func TestRoomManagerLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create room: %v", err)
 	}
+	_, _ = rm.JoinRoom("my-custom-room", c1)
 
 	if val := testutil.ToFloat64(metrics.ActiveRooms); val != 1 {
 		t.Fatalf("expected 1 active room, got %f", val)
@@ -51,11 +52,12 @@ func TestRoomManagerLifecycle(t *testing.T) {
 		t.Fatalf("failed to join room: %v", errJoin)
 	}
 
-	if room.PeerCount() != 1 {
-		t.Fatalf("expected 1 peer in room, got %d", room.PeerCount())
+	if room.PeerCount() != 2 {
+		t.Fatalf("expected 2 peers in room, got %d", room.PeerCount())
 	}
 
 	// Leave room
+	rm.LeaveRoom("my-custom-room", c1.ID())
 	rm.LeaveRoom("my-custom-room", c2.ID())
 	rm.ForceCleanEmptyRooms()
 	if val := testutil.ToFloat64(metrics.ActiveRooms); val != 0 {
