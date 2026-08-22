@@ -57,6 +57,7 @@ func TestRoomManagerLifecycle(t *testing.T) {
 
 	// Leave room
 	rm.LeaveRoom("my-custom-room", c2.ID())
+	rm.ForceCleanEmptyRooms()
 	if val := testutil.ToFloat64(metrics.ActiveRooms); val != 0 {
 		t.Fatalf("expected 0 active rooms after empty cleanup, got %f", val)
 	}

@@ -19,8 +19,10 @@ export const App: React.FC = () => {
   const rtcRef = useRef<WebRTCManager | null>(null);
 
   useEffect(() => {
-    const rtc = new WebRTCManager();
-    rtcRef.current = rtc;
+    if (!rtcRef.current) {
+      rtcRef.current = new WebRTCManager();
+    }
+    const rtc = rtcRef.current;
 
     rtc.setCallbacks(
       (newStatus) => setStatus(newStatus),
@@ -40,10 +42,6 @@ export const App: React.FC = () => {
     );
 
     rtc.connectSignaling();
-
-    return () => {
-      rtc.disconnectAll();
-    };
   }, []);
 
   const handleCreateRoom = (customRoomId?: string, password?: string) => {

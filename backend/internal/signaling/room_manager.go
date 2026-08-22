@@ -91,6 +91,11 @@ func (rm *RoomManager) JoinRoom(roomID string, client domain.Client) (*domain.Ro
 		return nil, ErrRoomFull
 	}
 
+	// If room was empty (e.g. host reconnected), reassign host ID to this client
+	if room.PeerCount() == 0 {
+		room.HostID = client.ID()
+	}
+
 	room.AddPeer(client)
 	slog.Info("Peer joined room", "room_id", roomID, "peer_id", client.ID())
 
@@ -135,13 +140,8 @@ func (rm *RoomManager) KickPeer(roomID, requesterID, targetID string) error {
 	}, targetID)
 
 	if room.PeerCount() == 0 {
-		rm.mu.Lock()
-		delete(rm.rooms, roomID)
-		if rm.metrics != nil {
-			rm.metrics.ActiveRooms.Dec()
-		}
-		rm.mu.Unlock()
-		slog.Info("Empty room destroyed after kick", "room_id", roomID)
+		room.LastActive = time.Now()
+		slog.Info("Room is now empty after kick", "room_id", roomID)
 	}
 
 	return nil
@@ -166,13 +166,8 @@ func (rm *RoomManager) LeaveRoom(roomID string, clientID string) {
 	}, clientID)
 
 	if room.PeerCount() == 0 {
-		rm.mu.Lock()
-		delete(rm.rooms, roomID)
-		if rm.metrics != nil {
-			rm.metrics.ActiveRooms.Dec()
-		}
-		rm.mu.Unlock()
-		slog.Info("Empty room destroyed", "room_id", roomID)
+		room.LastActive = time.Now()
+		slog.Info("Room is now empty", "room_id", roomID)
 	}
 }
 
@@ -200,26 +195,30 @@ func (rm *RoomManager) Stop() {
 }
 
 func (rm *RoomManager) startCleanupLoop() {
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			rm.cleanInactiveRooms()
+			rm.cleanInactiveRooms(false)
 		case <-rm.quit:
 			return
 		}
 	}
 }
 
-func (rm *RoomManager) cleanInactiveRooms() {
+func (rm *RoomManager) ForceCleanEmptyRooms() {
+	rm.cleanInactiveRooms(true)
+}
+
+func (rm *RoomManager) cleanInactiveRooms(forceEmpty bool) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 
 	now := time.Now()
 	for id, room := range rm.rooms {
-		if room.PeerCount() == 0 || now.Sub(room.LastActive) > 1*time.Hour {
+		if (room.PeerCount() == 0 && (forceEmpty || now.Sub(room.LastActive) > 2*time.Minute)) || now.Sub(room.LastActive) > 1*time.Hour {
 			delete(rm.rooms, id)
 			if rm.metrics != nil {
 				rm.metrics.ActiveRooms.Dec()
