@@ -10,7 +10,7 @@ This document serves as a reference on how to deploy the backend as a Google Clo
 2. Enable Billing for your project, if not already enabled. You will need to create a billing account if you don't have one. 
 3. Enable APIs for terraform scripts to use. To do this, you need to open the cloud shell (>_ icon on the top right corner of cloud console). This will start a new bash session on the browser. On the terminal run the following command:
     ```bash
-    gcloud services enable run.googleapis.com iam.googleapis.com cloudresourcemanager.googleapis.com
+    gcloud services enable run.googleapis.com artifactregistry.googleapis.com iam.googleapis.com cloudresourcemanager.googleapis.com
     ```
 
 ### Create Service Accounts
@@ -21,6 +21,7 @@ Terraform and GitHub actions will use this service account to deploy and manage 
 2. Click on "Create Service Account"
 3. Fill in the service account name (e.g. "github-actions-bot") and a description (e.g. "Service account for GitHub actions") and click "Create and Continue".
 4. Grant it the following roles so it has the power to deploy and manage the resources we define in terraform:
+    - roles/artifactregistry.writer
     - roles/run.admin
     - roles/iam.serviceAccountUser
     - roles/storage.objectAdmin
@@ -107,6 +108,39 @@ gcloud iam service-accounts add-iam-policy-binding \
     --member="principalSet://iam.googleapis.com/${WORKLOAD_IDENTITY_POOL_ID}/attribute.repository/${GITHUB_REPO}"
 ```
 
+### Initial Terraform Provisioning Rationale (Breaking the Deadlock)
+
+To prevent a "chicken-and-egg" deadlock where Cloud Run tries to pull a non-existent image before the Artifact Registry repository is created, `main.tf` initializes Cloud Run with Google's public starter image (`gcr.io/cloudrun/hello`). 
+
+Because `main.tf` includes `lifecycle { ignore_changes = [ template[0].containers[0].image ] }`, Terraform provisions the infrastructure safely on day 1, and will never overwrite your live image deployments when updating code!
+
+### Deploying & Updating the Backend
+
+Whenever you make updates to your Go backend code, deploy the new revision using these 3 steps:
+
+1. **Rebuild local Docker image:**
+   ```bash
+   docker compose build backend
+   ```
+
+2. **Tag and push to GCP Artifact Registry:**
+   ```bash
+   docker tag ghcr.io/thesct22/ezyshare-backend:latest us-central1-docker.pkg.dev/<your-project-id>/ezyshare-repo/backend:latest
+   docker push us-central1-docker.pkg.dev/<your-project-id>/ezyshare-repo/backend:latest
+   ```
+
+3. **Deploy new revision to Cloud Run:**
+   ```bash
+   gcloud run deploy ezyshare-backend \
+       --image=us-central1-docker.pkg.dev/<your-project-id>/ezyshare-repo/backend:latest \
+       --region=us-central1
+   ```
+
+> **Note on Endpoints:** GCP Cloud Run's edge load balancer reserves `/healthz` internally. To verify your live backend deployment status, test the API or metrics endpoints:
+> - ICE Servers API: `https://<your-service-url>.a.run.app/api/v1/ice-servers`
+> - Prometheus Metrics: `https://<your-service-url>.a.run.app/metrics`
+> - WebSocket Endpoint: `wss://<your-service-url>.a.run.app/ws`
+
 ### Terraform Deployment Instructions
 
 1. Create a `deployment/terraform/terraform.tfvars` file locally (Git-ignored):
@@ -136,4 +170,3 @@ gcloud iam service-accounts add-iam-policy-binding \
    ```bash
    terraform apply
    ```
-
