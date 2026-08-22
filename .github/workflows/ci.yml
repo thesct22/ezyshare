@@ -10,8 +10,36 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Detect Changed Paths
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+      formatting: ${{ steps.filter.outputs.formatting }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Filter Path Changes
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/ci.yml'
+            backend:
+              - 'backend/**'
+              - '.github/workflows/ci.yml'
+            formatting:
+              - '**/*.{yml,yaml,json,md}'
+              - '.github/workflows/ci.yml'
+
   frontend-ci:
     name: Frontend (Lint, Typecheck & Vitest)
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -46,6 +74,8 @@ jobs:
 
   backend-ci:
     name: Backend (Go Formatting, Vet & Tests)
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -79,6 +109,8 @@ jobs:
 
   yaml-and-formatting-ci:
     name: YAML & Repository Formatting
+    needs: changes
+    if: ${{ needs.changes.outputs.formatting == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -91,4 +123,4 @@ jobs:
 
       - name: Check Formatting with Prettier
         run: |
-          npx prettier --check "**/*.{yml,yaml,json,md}"
+          npx --yes prettier --check "**/*.{yml,yaml,json,md}"
