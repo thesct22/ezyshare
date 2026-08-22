@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   backend:
+    image: ghcr.io/thesct22/ezyshare-backend:latest
     build:
       context: ./backend
       target: prod
@@ -19,6 +20,7 @@ services:
       - ezyshare_network
 
   frontend:
+    image: ghcr.io/thesct22/ezyshare-frontend:latest
     build:
       context: ./frontend
       target: prod
