@@ -18,10 +18,12 @@
 ### Task 1: Complete `internal/telemetry` Tests (`logger_test.go` & `metrics_test.go`)
 
 **Files:**
+
 - Create: `backend/internal/telemetry/logger_test.go`
 - Modify: `backend/internal/telemetry/metrics_test.go`
 
 **Interfaces:**
+
 - Tests `telemetry.InitLogger`, `telemetry.GetClientIP`, `telemetry.NewMetrics`, `telemetry.HTTPMiddleware`
 
 - [ ] **Step 1: Write `logger_test.go`**
@@ -175,9 +177,11 @@ git commit -m "test(telemetry): add complete test coverage for logger and metric
 ### Task 2: Comprehensive `internal/signaling` Tests (`hub_test.go`)
 
 **Files:**
+
 - Modify: `backend/internal/signaling/hub_test.go`
 
 **Interfaces:**
+
 - Tests `signaling.Hub.Register`, `Unregister`, `Relay`, `Start`, `Stop`, `closeAllConnections`
 
 - [ ] **Step 1: Expand `hub_test.go`**
@@ -310,9 +314,11 @@ git commit -m "test(signaling): add concurrent registration, relay error, and li
 ### Task 3: Comprehensive `internal/handler` Tests (`ws_test.go`)
 
 **Files:**
+
 - Create: `backend/internal/handler/ws_test.go`
 
 **Interfaces:**
+
 - Tests `handler.Handler.ServeWS`, WebSocket upgrade, join, WebRTC offer/answer/candidate relay, unauthenticated frames, and disconnection.
 
 - [ ] **Step 1: Create `ws_test.go`**
@@ -480,9 +486,11 @@ git commit -m "test(handler): add full websocket upgrade, P2P signaling exchange
 ### Task 4: Integration Tests for `cmd/server` (`server_test.go`) & Final Suite Verification
 
 **Files:**
+
 - Create: `backend/cmd/server/server_test.go`
 
 **Interfaces:**
+
 - Tests `GET /healthz`, `GET /metrics`, CORS `OPTIONS /ws`
 
 - [ ] **Step 1: Create `server_test.go`**

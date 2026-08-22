@@ -4,6 +4,7 @@ This is a Golang server for the EzyShare file sharing application.
 The server works as an identity broker, presence manager and signaling relay for the P2P WebRTC connections between clients.
 
 ## Key Responsibilities
+
 1. **Client Identity & Session Management**: Assigning or validating unique peer IDs (UUIDs) when clients connect.
 2. **Signaling Exchange**: Transporting WebRTC handshakes (OFFER, ANSWER, and ICE candidates) between two peers.
 3. **Session Lifecycle & Cleanup**: Pruning inactive connections, handling abrupt disconnections, and expiring orphaned rooms after a timeout.
@@ -59,7 +60,7 @@ docker run -p 8080:8080 ezyshare-server:latest
 
 ## Deployment
 
-We are planning to deploy this to Koyeb for utilizing their free tier. 
+We are planning to deploy this to Koyeb for utilizing their free tier.
 
 The backend is containerized and can be deployed to any container orchestrator.
 

@@ -19,12 +19,14 @@
 ### Task 1: Create `internal/telemetry` Package (`logger.go` & `metrics.go`)
 
 **Files:**
+
 - Create: `backend/internal/telemetry/logger.go`
 - Create: `backend/internal/telemetry/metrics.go`
 - Create: `backend/internal/telemetry/metrics_test.go`
 - Modify: `backend/go.mod`
 
 **Interfaces:**
+
 - Produces:
   - `telemetry.InitLogger(levelStr, format string) *slog.Logger`
   - `telemetry.GetClientIP(r *http.Request) string`
@@ -269,10 +271,12 @@ git commit -m "feat(telemetry): add slog logger with GetClientIP helper and prom
 ### Task 2: Instrument `internal/signaling/hub.go` with Metrics
 
 **Files:**
+
 - Modify: `backend/internal/signaling/hub.go`
 - Create: `backend/internal/signaling/hub_test.go`
 
 **Interfaces:**
+
 - Consumes: `telemetry.Metrics`
 - Modifies: `signaling.NewHub(metrics *telemetry.Metrics) *Hub`
 
@@ -469,9 +473,11 @@ git commit -m "feat(signaling): instrument hub with active peers gauge and messa
 ### Task 3: Instrument `internal/handler/ws.go` & Fix Disconnect Loop Cleanup
 
 **Files:**
+
 - Modify: `backend/internal/handler/ws.go`
 
 **Interfaces:**
+
 - Consumes: `signaling.Hub`, `telemetry.Metrics`
 - Modifies: `handler.NewHandler(hub *signaling.Hub, metrics *telemetry.Metrics) *Handler`
 
@@ -622,6 +628,7 @@ git commit -m "feat(handler): add websocket counter metrics and client ip extrac
 ### Task 4: Integrate Telemetry in `cmd/server/main.go` & End-to-End Verification
 
 **Files:**
+
 - Modify: `backend/cmd/server/main.go`
 
 - [ ] **Step 1: Update `main.go`**

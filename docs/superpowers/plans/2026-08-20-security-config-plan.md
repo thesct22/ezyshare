@@ -18,10 +18,12 @@
 ### Task 1: Create `internal/config` Package (`config.go` & `config_test.go`)
 
 **Files:**
+
 - Create: `backend/internal/config/config.go`
 - Create: `backend/internal/config/config_test.go`
 
 **Interfaces:**
+
 - Produces:
   - `config.Config` struct (`AppEnv`, `Port`, `LogLevel`, `LogFormat`, `AllowedOrigins`)
   - `config.LoadConfig() *Config`
@@ -241,10 +243,12 @@ git commit -m "feat(config): add environment configuration and origin validation
 ### Task 2: Update `internal/handler/ws.go` with Strict Origin Validation & Payload Limits
 
 **Files:**
+
 - Modify: `backend/internal/handler/ws.go`
 - Modify: `backend/internal/handler/ws_test.go`
 
 **Interfaces:**
+
 - Consumes: `config.IsOriginAllowed`
 - Modifies: `handler.NewHandler(hub *signaling.Hub, metrics *telemetry.Metrics, allowedOrigins []string) *Handler`
 
@@ -579,6 +583,7 @@ git commit -m "feat(handler): add strict websocket origin check and 64KB read fr
 ### Task 3: Integrate Security Headers & Config in `cmd/server/main.go` and Update Integration Tests
 
 **Files:**
+
 - Modify: `backend/cmd/server/main.go`
 - Modify: `backend/cmd/server/server_test.go`
 

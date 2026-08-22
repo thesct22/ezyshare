@@ -270,7 +270,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
               >
                 {status === 'p2p_connected' ? 'Connected' : 'Join Room'}
               </Button>
-              
+
               {status === 'p2p_connected' && tabIndex === 1 && (
                 <Button
                   variant="outlined"

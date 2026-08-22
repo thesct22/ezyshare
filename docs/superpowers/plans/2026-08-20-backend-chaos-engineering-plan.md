@@ -18,10 +18,12 @@
 ### Task 1: Production Chaos Middleware & WebSocket Inspector (`internal/middleware/chaos.go` & `chaos_test.go`)
 
 **Files:**
+
 - Create: `backend/internal/middleware/chaos.go`
 - Create: `backend/internal/middleware/chaos_test.go`
 
 **Interfaces:**
+
 - Produces:
   - `middleware.ChaosMiddleware(metrics *telemetry.Metrics) func(http.Handler) http.Handler`
   - `middleware.ShouldDropWebSocketFrame(r *http.Request) bool`
@@ -212,6 +214,7 @@ git commit -m "feat(middleware): add header-authenticated production chaos middl
 ### Task 2: Inject Chaos Check into WebSocket Handler (`internal/handler/ws.go`)
 
 **Files:**
+
 - Modify: `backend/internal/handler/ws.go`
 
 - [ ] **Step 1: Update `ServeWS` in `ws.go`**
@@ -255,6 +258,7 @@ git commit -m "feat(handler): inject WebSocket signaling frame chaos hooks"
 ### Task 3: Server Integration & Comprehensive Verification (`cmd/server/main.go`)
 
 **Files:**
+
 - Modify: `backend/cmd/server/main.go`
 
 - [ ] **Step 1: Mount `ChaosMiddleware` in `main.go`**

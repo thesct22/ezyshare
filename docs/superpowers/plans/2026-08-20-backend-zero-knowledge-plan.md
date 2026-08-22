@@ -19,10 +19,12 @@
 ### Task 1: Domain & Signaling Protocols Expansion (`signal.go` & `room.go`)
 
 **Files:**
+
 - Modify: `backend/internal/domain/signal.go`
 - Create: `backend/internal/domain/room.go`
 
 **Interfaces:**
+
 - Produces:
   - `domain.MessageType` constants (`TypeCreateRoom`, `TypeJoinRoom`, `TypeLeaveRoom`, `TypePeerJoined`, `TypePeerLeft`, `TypeRoomCreated`, `TypeError`)
   - `domain.Room` struct (`ID`, `HostID`, `Peers map[string]Client`, `CreatedAt`, `LastActive`)
@@ -150,11 +152,13 @@ git commit -m "feat(domain): add room struct and room signaling message types"
 ### Task 2: Implement RoomManager (`room_manager.go` & `room_manager_test.go`)
 
 **Files:**
+
 - Create: `backend/internal/signaling/room_manager.go`
 - Create: `backend/internal/signaling/room_manager_test.go`
 - Modify: `backend/internal/telemetry/metrics.go`
 
 **Interfaces:**
+
 - Produces:
   - `signaling.RoomManager` (`GetOrCreateRoom`, `JoinRoom`, `LeaveRoom`, `RelayRoomSignal`)
   - Prometheus metrics `ActiveRooms` Gauge and `RoomsCreatedTotal` CounterVec
@@ -517,10 +521,12 @@ git commit -m "feat(signaling): implement zero-knowledge RoomManager and active 
 ### Task 3: Ephemeral TURN ICE Credentials Handler (`GET /api/v1/ice-servers`)
 
 **Files:**
+
 - Create: `backend/internal/handler/ice.go`
 - Create: `backend/internal/handler/ice_test.go`
 
 **Interfaces:**
+
 - Produces:
   - `handler.ICEServerHandler(w http.ResponseWriter, r *http.Request)`
   - Endpoint `GET /api/v1/ice-servers` returning STUN & ephemeral Coturn TURN credentials
@@ -666,6 +672,7 @@ git commit -m "feat(handler): add ephemeral TURN ICE credentials endpoint GET /a
 ### Task 4: Integrate RoomManager & ICE Servers Route in `cmd/server/main.go`
 
 **Files:**
+
 - Modify: `backend/cmd/server/main.go`
 - Modify: `backend/cmd/server/server_test.go`
 - Modify: `backend/internal/handler/ws.go`

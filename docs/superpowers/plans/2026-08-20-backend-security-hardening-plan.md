@@ -19,11 +19,13 @@
 ### Task 1: IP Rate Limiter Package & Metrics (`internal/middleware/ratelimit.go` & `ratelimit_test.go`)
 
 **Files:**
+
 - Create: `backend/internal/middleware/ratelimit.go`
 - Create: `backend/internal/middleware/ratelimit_test.go`
 - Modify: `backend/internal/telemetry/metrics.go`
 
 **Interfaces:**
+
 - Produces:
   - `middleware.IPRateLimiter` (`Allow(ip string) bool`, `LimitMiddleware(r rate.Limit, b int)`)
   - Prometheus metric `ezyshare_rate_limit_exceeded_total` CounterVec
@@ -248,10 +250,12 @@ git commit -m "feat(middleware): add thread-safe IP rate limiter with prometheus
 ### Task 2: Strict Security Headers & MaxBytes Payload Protection (`internal/middleware/security.go`)
 
 **Files:**
+
 - Create: `backend/internal/middleware/security.go`
 - Create: `backend/internal/middleware/security_test.go`
 
 **Interfaces:**
+
 - Produces:
   - `middleware.SecurityHeaders(appEnv string) func(http.Handler) http.Handler`
   - `middleware.MaxBytesMiddleware(maxBytes int64) func(http.Handler) http.Handler`
@@ -365,10 +369,12 @@ git commit -m "feat(middleware): add strict security headers (CSP, HSTS, Permiss
 ### Task 3: Custom Room ID Regex Validation & Sanitization (`internal/signaling/room_manager.go`)
 
 **Files:**
+
 - Modify: `backend/internal/signaling/room_manager.go`
 - Modify: `backend/internal/signaling/room_manager_test.go`
 
 **Interfaces:**
+
 - Produces:
   - `ErrInvalidRoomID` error
   - Regex validation `^[a-zA-Z0-9_-]{4,64}$` for custom room IDs
@@ -457,9 +463,11 @@ git commit -m "feat(signaling): add custom Room ID regex validation and XSS/sani
 ### Task 4: WebSocket Heartbeat Ping/Pong & Dead Connection Pruning (`internal/handler/ws.go`)
 
 **Files:**
+
 - Modify: `backend/internal/handler/ws.go`
 
 **Interfaces:**
+
 - Produces:
   - 30-second Ping ticker to prune dead TCP sockets and prevent zombie connection memory leaks.
 
@@ -508,6 +516,7 @@ git commit -m "feat(handler): add WebSocket ping/pong heartbeat ticker to prune 
 ### Task 5: Server Integration & Comprehensive Verification (`cmd/server/main.go`)
 
 **Files:**
+
 - Modify: `backend/cmd/server/main.go`
 - Modify: `backend/cmd/server/server_test.go`
 

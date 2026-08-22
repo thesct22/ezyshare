@@ -10,24 +10,36 @@ repos:
         args: ["--maxkb=500"]
       - id: check-merge-conflict
 
-  # 2. YAML & JSON Formatting (Prettier)
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v3.1.0
-    hooks:
-      - id: prettier
-        types_or: [yaml, json, markdown]
-
-  # 3. Go Backend Quality Hooks
-  - repo: https://github.com/dnephin/pre-commit-golang
-    rev: v0.5.1
-    hooks:
-      - id: go-fmt
-      - id: go-vet
-      - id: go-test
-
-  # 4. Frontend Local Hooks (Linting, Typecheck & Vitest)
+  # 2. Local Project Hooks (Prettier, Go Backend & React Frontend)
   - repo: local
     hooks:
+      - id: prettier-check
+        name: Prettier YAML & Markdown Format Check
+        entry: npx --yes prettier --check "**/*.{yml,yaml,json,md}"
+        language: system
+        pass_filenames: false
+
+      - id: backend-fmt
+        name: Backend Go Format Check
+        entry: bash -c "cd backend && unformatted=$(gofmt -s -l .) && if [ -n \"$unformatted\" ]; then echo \"Unformatted files:\n$unformatted\"; exit 1; fi"
+        language: system
+        files: ^backend/
+        pass_filenames: false
+
+      - id: backend-vet
+        name: Backend Go Vet
+        entry: bash -c "cd backend && go vet ./..."
+        language: system
+        files: ^backend/
+        pass_filenames: false
+
+      - id: backend-test
+        name: Backend Go Unit Tests
+        entry: bash -c "cd backend && go test ./..."
+        language: system
+        files: ^backend/
+        pass_filenames: false
+
       - id: frontend-lint
         name: Frontend Oxlint
         entry: bash -c "cd frontend && npm run lint"
