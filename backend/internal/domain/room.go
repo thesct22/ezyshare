@@ -55,3 +55,14 @@ func (r *Room) Broadcast(msg SignalMessage, excludeClientID string) {
 		}
 	}
 }
+
+func (r *Room) SendTo(targetID string, msg SignalMessage) bool {
+	r.mu.RLock()
+	client, exists := r.Peers[targetID]
+	r.mu.RUnlock()
+	if exists {
+		_ = client.Send(msg)
+		return true
+	}
+	return false
+}

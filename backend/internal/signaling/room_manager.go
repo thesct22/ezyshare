@@ -22,7 +22,7 @@ var (
 
 var roomIDRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]{4,64}$`)
 
-const MaxPeersPerRoom = 10
+const MaxPeersPerRoom = 2
 
 type RoomManager struct {
 	mu      sync.RWMutex
@@ -141,7 +141,7 @@ func (rm *RoomManager) RelayRoomSignal(roomID string, msg domain.SignalMessage) 
 	}
 
 	if msg.TargetID != "" {
-		room.Broadcast(msg, "")
+		room.SendTo(msg.TargetID, msg)
 		return nil
 	}
 

@@ -16,8 +16,9 @@ import (
 )
 
 type wsClient struct {
-	id   string
-	conn *websocket.Conn
+	id     string
+	conn   *websocket.Conn
+	roomID string
 }
 
 func (c *wsClient) ID() string {
@@ -108,6 +109,9 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		if client != nil {
+			if client.roomID != "" && h.roomMgr != nil {
+				h.roomMgr.LeaveRoom(client.roomID, client.ID())
+			}
 			h.hub.Unregister(client)
 			slog.Info("Peer disconnected", "peer_id", client.ID())
 		}
@@ -150,6 +154,7 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 					_ = client.Send(domain.SignalMessage{Type: domain.TypeError, Payload: err.Error()})
 				} else {
 					_, _ = h.roomMgr.JoinRoom(room.ID, client)
+					client.roomID = room.ID
 					_ = client.Send(domain.SignalMessage{Type: domain.TypeRoomCreated, RoomID: room.ID, SenderID: client.ID()})
 				}
 			}
@@ -163,12 +168,17 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 				_, err := h.roomMgr.JoinRoom(msg.RoomID, client)
 				if err != nil {
 					_ = client.Send(domain.SignalMessage{Type: domain.TypeError, Payload: err.Error()})
+				} else {
+					client.roomID = msg.RoomID
 				}
 			}
 
 		case domain.TypeLeaveRoom:
 			if client != nil && h.roomMgr != nil && msg.RoomID != "" {
 				h.roomMgr.LeaveRoom(msg.RoomID, client.ID())
+				if client.roomID == msg.RoomID {
+					client.roomID = ""
+				}
 			}
 
 		case domain.TypeJoin:
