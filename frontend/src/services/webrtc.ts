@@ -8,6 +8,8 @@ export class WebRTCManager {
   private pc: RTCPeerConnection | null = null;
   private dataChannel: RTCDataChannel | null = null;
   private reconnectTimer: number | null = null;
+  private joinTimeoutTimer: number | null = null;
+  private pendingSignalQueue: SignalMessage[] = [];
   private isDisposed = false;
   private authFailed = false;
   public myPeerId: string;
@@ -107,6 +109,11 @@ export class WebRTCManager {
 
       ws.onopen = () => {
         if (this.isDisposed) return;
+        this.sendSignal({
+          type: 'join',
+          sender_id: this.myPeerId,
+        });
+        this.flushPendingSignals();
         this.onStatusChangeCB?.('signaling_ready');
         if (this.currentRoomId) {
           if (this.isHost) {
@@ -172,6 +179,26 @@ export class WebRTCManager {
   private sendSignal(msg: SignalMessage) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
+    } else {
+      this.pendingSignalQueue.push(msg);
+    }
+  }
+
+  private flushPendingSignals() {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      while (this.pendingSignalQueue.length > 0) {
+        const msg = this.pendingSignalQueue.shift();
+        if (msg) {
+          this.ws.send(JSON.stringify(msg));
+        }
+      }
+    }
+  }
+
+  private clearJoinTimeout() {
+    if (this.joinTimeoutTimer) {
+      window.clearTimeout(this.joinTimeoutTimer);
+      this.joinTimeoutTimer = null;
     }
   }
 
@@ -192,6 +219,15 @@ export class WebRTCManager {
     this.currentRoomId = roomId;
     this.roomPassword = password || '';
     this.onStatusChangeCB?.('joining');
+
+    this.clearJoinTimeout();
+    this.joinTimeoutTimer = window.setTimeout(() => {
+      if (!this.isHost && this.currentRoomId === roomId && !this.pc) {
+        console.warn('Join room timeout: Host did not respond with WebRTC offer');
+        this.onStatusChangeCB?.('join_error');
+      }
+    }, 10000);
+
     this.sendSignal({
       type: 'join_room',
       sender_id: this.myPeerId,
@@ -219,6 +255,7 @@ export class WebRTCManager {
   }
 
   public leaveRoom() {
+    this.clearJoinTimeout();
     if (this.currentRoomId) {
       this.sendSignal({
         type: 'leave_room',
@@ -250,6 +287,7 @@ export class WebRTCManager {
         break;
 
       case 'offer':
+        this.clearJoinTimeout();
         this.targetPeerId = msg.sender_id;
         await this.handleOffer(msg.sender_id, msg.payload);
         break;
@@ -263,6 +301,7 @@ export class WebRTCManager {
         break;
 
       case 'kicked':
+        this.clearJoinTimeout();
         this.currentRoomId = '';
         this.targetPeerId = '';
         this.closePeerConnection();
@@ -270,6 +309,7 @@ export class WebRTCManager {
         break;
 
       case 'peer_left':
+        this.clearJoinTimeout();
         if (msg.sender_id === this.targetPeerId || !this.targetPeerId) {
           this.closePeerConnection();
           this.targetPeerId = '';
@@ -281,6 +321,7 @@ export class WebRTCManager {
         break;
 
       case 'error':
+        this.clearJoinTimeout();
         console.error('Room signaling error:', msg.payload);
         if (msg.payload && (msg.payload.includes('maximum peer capacity') || msg.payload.includes('room full') || msg.payload.includes('not found'))) {
           this.onStatusChangeCB?.('join_error');
