@@ -1,0 +1,39 @@
+# OS & Editor Files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Node / React Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/.tmp/
+*.log
+npm-debug.log*
+
+# Go Backend
+backend/bin/
+backend/coverage.out
+backend/*.exe
+
+# Terraform & Cloud
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+!terraform.tfvars.example
+.terraform.lock.hcl
+
+# Pre-commit & Tooling Caches
+.pre-commit-config.yaml.cache
+.cache/
