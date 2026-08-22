@@ -9,6 +9,7 @@ export class WebRTCManager {
   private dataChannel: RTCDataChannel | null = null;
   private reconnectTimer: number | null = null;
   private isDisposed = false;
+  private authFailed = false;
   public myPeerId: string;
   public currentRoomId: string = '';
   public roomPassword: string = '';
@@ -56,7 +57,13 @@ export class WebRTCManager {
 
   public async fetchICEServers(): Promise<RTCConfiguration> {
     try {
-      const response = await fetch('/api/v1/ice-servers');
+      const protocol = window.location.protocol;
+      const host = window.location.hostname;
+      const isDevPort = window.location.port !== '' && window.location.port !== '8080';
+      const targetPort = isDevPort ? '8080' : window.location.port;
+      const baseUrl = `${protocol}//${host}${targetPort ? `:${targetPort}` : ''}`;
+      
+      const response = await fetch(`${baseUrl}/api/v1/ice-servers`);
       if (response.ok) {
         const data = await response.json();
         return { iceServers: data.iceServers };
@@ -158,6 +165,7 @@ export class WebRTCManager {
 
   public createRoom(customRoomId?: string, password?: string) {
     this.isHost = true;
+    this.authFailed = false;
     this.roomPassword = password || '';
     this.sendSignal({
       type: 'create_room',
@@ -168,6 +176,7 @@ export class WebRTCManager {
 
   public joinRoom(roomId: string, password?: string) {
     this.isHost = false;
+    this.authFailed = false;
     this.currentRoomId = roomId;
     this.roomPassword = password || '';
     this.sendSignal({
@@ -175,6 +184,21 @@ export class WebRTCManager {
       sender_id: this.myPeerId,
       room_id: roomId,
     });
+  }
+
+  public leaveRoom() {
+    if (this.currentRoomId) {
+      this.sendSignal({
+        type: 'leave_room',
+        sender_id: this.myPeerId,
+        room_id: this.currentRoomId,
+      });
+    }
+    this.currentRoomId = '';
+    this.roomPassword = '';
+    this.targetPeerId = '';
+    this.closePeerConnection();
+    this.onStatusChangeCB?.('signaling_ready');
   }
 
   private async handleSignalMessage(msg: SignalMessage) {
@@ -205,9 +229,24 @@ export class WebRTCManager {
         await this.handleCandidate(msg.payload);
         break;
 
+      case 'peer_left':
+        if (msg.sender_id === this.targetPeerId) {
+          this.closePeerConnection();
+          this.targetPeerId = '';
+          this.onStatusChangeCB?.(this.isHost ? 'in_room' : 'signaling_ready');
+          if (!this.isHost) {
+            this.currentRoomId = '';
+          }
+        }
+        break;
+
       case 'error':
         console.error('Room signaling error:', msg.payload);
-        this.onStatusChangeCB?.('auth_failed');
+        if (msg.payload && (msg.payload.includes('maximum peer capacity') || msg.payload.includes('room full') || msg.payload.includes('not found'))) {
+          this.onStatusChangeCB?.('join_error');
+        } else {
+          this.onStatusChangeCB?.('auth_failed');
+        }
         break;
     }
   }
@@ -298,7 +337,9 @@ export class WebRTCManager {
     };
 
     channel.onclose = () => {
-      this.onStatusChangeCB?.('in_room');
+      if (!this.authFailed) {
+        this.onStatusChangeCB?.('in_room');
+      }
     };
   }
 
@@ -320,6 +361,7 @@ export class WebRTCManager {
         } else if (payload.type === 'auth_success' && !this.isHost) {
           this.onStatusChangeCB?.('p2p_connected');
         } else if (payload.type === 'auth_failed' && !this.isHost) {
+          this.authFailed = true;
           this.onStatusChangeCB?.('auth_failed');
           this.closePeerConnection();
         } else if (payload.type === 'file_list') {
@@ -549,12 +591,11 @@ export class WebRTCManager {
       socket.onclose = null;
 
       if (socket.readyState === WebSocket.CONNECTING) {
-        // If connection is still opening, close safely on next event tick
-        setTimeout(() => {
-          try {
-            socket.close();
-          } catch (_) {}
-        }, 50);
+        socket.onopen = () => {
+          socket.close();
+        };
+        // Also catch errors so they don't bubble up unnecessarily
+        socket.onerror = () => {};
       } else {
         try {
           socket.close();
