@@ -15,6 +15,8 @@ const (
 	TypePeerJoined  MessageType = "peer_joined"
 	TypePeerLeft    MessageType = "peer_left"
 	TypeRoomCreated MessageType = "room_created"
+	TypeRemovePeer  MessageType = "remove_peer"
+	TypeKicked      MessageType = "kicked"
 	TypeError       MessageType = "error"
 )
 

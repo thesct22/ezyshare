@@ -181,6 +181,14 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
+		case domain.TypeRemovePeer:
+			if client != nil && h.roomMgr != nil && msg.RoomID != "" && msg.TargetID != "" {
+				err := h.roomMgr.KickPeer(msg.RoomID, client.ID(), msg.TargetID)
+				if err != nil {
+					_ = client.Send(domain.SignalMessage{Type: domain.TypeError, Payload: err.Error()})
+				}
+			}
+
 		case domain.TypeJoin:
 			if msg.SenderID == "" {
 				slog.Warn("Join attempt missing senderId")

@@ -18,6 +18,7 @@ var (
 	ErrRoomIDTaken   = errors.New("custom room ID already in use")
 	ErrRoomFull      = errors.New("room reached maximum peer capacity")
 	ErrInvalidRoomID = errors.New("invalid custom room ID (must be 4-64 alphanumeric characters, hyphens, or underscores)")
+	ErrNotHost       = errors.New("only room host can perform this action")
 )
 
 var roomIDRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]{4,64}$`)
@@ -85,7 +86,8 @@ func (rm *RoomManager) JoinRoom(roomID string, client domain.Client) (*domain.Ro
 		return nil, ErrRoomNotFound
 	}
 
-	if room.PeerCount() >= MaxPeersPerRoom {
+	// Idempotent join check: allow re-joining if peer is already in room
+	if !room.HasPeer(client.ID()) && room.PeerCount() >= MaxPeersPerRoom {
 		return nil, ErrRoomFull
 	}
 
@@ -100,6 +102,49 @@ func (rm *RoomManager) JoinRoom(roomID string, client domain.Client) (*domain.Ro
 	}, client.ID())
 
 	return room, nil
+}
+
+func (rm *RoomManager) KickPeer(roomID, requesterID, targetID string) error {
+	rm.mu.Lock()
+	room, exists := rm.rooms[roomID]
+	rm.mu.Unlock()
+
+	if !exists {
+		return ErrRoomNotFound
+	}
+
+	if room.HostID != requesterID {
+		return ErrNotHost
+	}
+
+	// Send kicked notification to target peer
+	_ = room.SendTo(targetID, domain.SignalMessage{
+		Type:    domain.TypeKicked,
+		RoomID:  roomID,
+		Payload: "You were removed from the room by the host.",
+	})
+
+	room.RemovePeer(targetID)
+	slog.Info("Host removed peer from room", "room_id", roomID, "host_id", requesterID, "target_id", targetID)
+
+	// Broadcast peer_left to notify host and remaining clients
+	room.Broadcast(domain.SignalMessage{
+		Type:     domain.TypePeerLeft,
+		SenderID: targetID,
+		RoomID:   roomID,
+	}, targetID)
+
+	if room.PeerCount() == 0 {
+		rm.mu.Lock()
+		delete(rm.rooms, roomID)
+		if rm.metrics != nil {
+			rm.metrics.ActiveRooms.Dec()
+		}
+		rm.mu.Unlock()
+		slog.Info("Empty room destroyed after kick", "room_id", roomID)
+	}
+
+	return nil
 }
 
 func (rm *RoomManager) LeaveRoom(roomID string, clientID string) {

@@ -61,3 +61,48 @@ func TestRoomManagerLifecycle(t *testing.T) {
 		t.Fatalf("expected 0 active rooms after empty cleanup, got %f", val)
 	}
 }
+
+func TestKickPeerAndIdempotentJoin(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	metrics := telemetry.NewMetrics(reg)
+	rm := signaling.NewRoomManager(metrics)
+	defer rm.Stop()
+
+	host := &mockClient{id: "host-1"}
+	guest := &mockClient{id: "guest-1"}
+
+	room, err := rm.CreateRoom("kick-test-room", host.ID())
+	if err != nil {
+		t.Fatalf("failed to create room: %v", err)
+	}
+	_, _ = rm.JoinRoom("kick-test-room", host)
+
+	// Join guest
+	_, errJoin := rm.JoinRoom("kick-test-room", guest)
+	if errJoin != nil {
+		t.Fatalf("failed to join guest: %v", errJoin)
+	}
+
+	// Idempotent re-join by guest does not fail with ErrRoomFull
+	_, errRejoin := rm.JoinRoom("kick-test-room", guest)
+	if errRejoin != nil {
+		t.Fatalf("expected idempotent re-join to succeed, got %v", errRejoin)
+	}
+
+	// Non-host trying to kick fails with ErrNotHost
+	errNotHost := rm.KickPeer("kick-test-room", guest.ID(), host.ID())
+	if errNotHost != signaling.ErrNotHost {
+		t.Fatalf("expected ErrNotHost, got %v", errNotHost)
+	}
+
+	// Host kicks guest
+	errKick := rm.KickPeer("kick-test-room", host.ID(), guest.ID())
+	if errKick != nil {
+		t.Fatalf("failed to kick guest: %v", errKick)
+	}
+
+	// Host remains in room (PeerCount == 1)
+	if room.PeerCount() != 1 {
+		t.Fatalf("expected host to remain in room (PeerCount == 1), got %d", room.PeerCount())
+	}
+}

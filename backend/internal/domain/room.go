@@ -46,6 +46,13 @@ func (r *Room) PeerCount() int {
 	return len(r.Peers)
 }
 
+func (r *Room) HasPeer(clientID string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	_, exists := r.Peers[clientID]
+	return exists
+}
+
 func (r *Room) Broadcast(msg SignalMessage, excludeClientID string) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
