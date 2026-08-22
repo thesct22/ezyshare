@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      target: prod
+    container_name: ezyshare_backend
+    restart: unless-stopped
+    environment:
+      - APP_ENV=prod
+      - PORT=8080
+      # - TURN_SERVER_URL=turn:your-turn-server.com:3478
+      # - TURN_SECRET=your_turn_secret
+    ports:
+      # Expose if needed, but frontend nginx proxies to it internally
+      - "8080:8080"
+    networks:
+      - ezyshare_network
+
+  frontend:
+    build:
+      context: ./frontend
+      target: prod
+    container_name: ezyshare_frontend
+    restart: unless-stopped
+    ports:
+      # Map host port 80 to container port 8080 (unprivileged nginx)
+      - "80:8080"
+    depends_on:
+      - backend
+    networks:
+      - ezyshare_network
+
+networks:
+  ezyshare_network:
+    driver: bridge

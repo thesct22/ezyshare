@@ -1,0 +1,5 @@
+.env
+.git
+.DS_Store
+tmp/
+server
