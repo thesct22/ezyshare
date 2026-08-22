@@ -5,8 +5,8 @@ on:
     branches:
       - main
     paths:
-      - 'backend/**'
-      - '.github/workflows/deploy-backend.yml'
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
   workflow_dispatch:
 
 permissions:
@@ -37,10 +37,10 @@ jobs:
       - name: Build & Push Backend Container Image
         run: |
           IMAGE_URI="us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/ezyshare-repo/backend"
-          
+
           # Build using production target from multi-stage Dockerfile
           docker build -t ${IMAGE_URI}:${{ github.sha }} -t ${IMAGE_URI}:latest ./backend
-          
+
           # Push image versions to Artifact Registry
           docker push ${IMAGE_URI}:${{ github.sha }}
           docker push ${IMAGE_URI}:latest
@@ -48,7 +48,7 @@ jobs:
       - name: Deploy Revision to Cloud Run
         run: |
           IMAGE_URI="us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/ezyshare-repo/backend:${{ github.sha }}"
-          
+
           gcloud run deploy ezyshare-backend \
             --image=${IMAGE_URI} \
             --region=us-central1 \

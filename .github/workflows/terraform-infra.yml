@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: 'Terraform Action (plan or apply)'
+        description: "Terraform Action (plan or apply)"
         required: true
-        default: 'plan'
+        default: "plan"
         type: choice
         options:
           - plan
@@ -14,10 +14,10 @@ on:
   workflow_call:
     inputs:
       action:
-        description: 'Terraform Action (plan or apply)'
+        description: "Terraform Action (plan or apply)"
         required: true
         type: string
-        default: 'plan'
+        default: "plan"
 
 permissions:
   id-token: write
@@ -40,7 +40,7 @@ jobs:
       - name: Setup Terraform CLI
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
-          terraform_version: '>= 1.15.0'
+          terraform_version: ">= 1.15.0"
 
       - name: Terraform Init
         run: |
