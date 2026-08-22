@@ -37,11 +37,14 @@ sequenceDiagram
     Sender->>Receiver: 3. Share Room Link / QR Code
     Receiver->>Signal: 4. Join Room via WebSocket (/ws)
     Signal-->>Sender: 5. Peer Joined Notification
-    Sender<->Receiver: 6. Exchange WebRTC SDP & ICE Candidates via Signaling
+    Sender->>Signal: 6. Send SDP Offer & ICE Candidates
+    Signal->>Receiver: 7. Forward SDP Offer & ICE Candidates
+    Receiver->>Signal: 8. Send SDP Answer & ICE Candidates
+    Signal->>Sender: 9. Forward SDP Answer & ICE Candidates
     Note over Sender,Receiver: Direct WebRTC P2P DataChannel Established
-    Sender->>Sender: 7. Encrypt Chunks (AES-GCM-256)
-    Sender->>Receiver: 8. Stream Encrypted Chunks directly (P2P)
-    Receiver->>Receiver: 9. Decrypt & Reassemble File Blob
+    Sender->>Sender: 10. Encrypt Chunks (AES-GCM-256)
+    Sender->>Receiver: 11. Stream Encrypted Chunks directly (P2P DataChannel)
+    Receiver->>Receiver: 12. Decrypt & Reassemble File Blob
 ```
 
 ---
