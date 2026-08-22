@@ -14,7 +14,7 @@ describe('WebRTCManager', () => {
 
   describe('fetchICEServers', () => {
     it('should fallback to Google STUN servers if fetch fails', async () => {
-      vi.spyOn(global, 'fetch').mockRejectedValueOnce(new Error('Network error'));
+      vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Network error'));
 
       const config = await service.fetchICEServers();
 
@@ -26,7 +26,7 @@ describe('WebRTCManager', () => {
 
     it('should return backend ICE servers when endpoint returns 200 OK', async () => {
       const mockServers = [{ urls: 'stun:custom.stun.server:3478' }];
-      vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
         ok: true,
         json: async () => ({ iceServers: mockServers }),
       } as Response);
