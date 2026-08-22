@@ -15,10 +15,10 @@ variable "service_name" {
   default     = "ezyshare-backend"
 }
 
-variable "backend_container_image_name" {
-  description = "Docker image on GHCR"
+variable "artifact_repository_name" {
+  description = "ID of the Artifact Registry repository for Docker images"
   type        = string
-  default     = "ghcr.io/thesct22/ezyshare-backend:latest"
+  default     = "ezyshare-repo"
 }
 
 variable "cloud_run_ingress" {
