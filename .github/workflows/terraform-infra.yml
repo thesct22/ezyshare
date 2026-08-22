@@ -1,0 +1,60 @@
+name: Terraform Infrastructure Management
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform Action (plan or apply)'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+  workflow_call:
+    inputs:
+      action:
+        description: 'Terraform Action (plan or apply)'
+        required: true
+        type: string
+        default: 'plan'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  terraform:
+    name: Terraform {{ inputs.action }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Authenticate to GCP (Workload Identity Federation)
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup Terraform CLI
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: '>= 1.15.0'
+
+      - name: Terraform Init
+        run: |
+          cd deployment/terraform
+          terraform init -backend-config="bucket=${{ secrets.GCP_TFSTATE_BUCKET }}"
+
+      - name: Terraform Plan
+        if: ${{ inputs.action == 'plan' }}
+        run: |
+          cd deployment/terraform
+          terraform plan -var="project_id=${{ secrets.GCP_PROJECT_ID }}"
+
+      - name: Terraform Apply
+        if: ${{ inputs.action == 'apply' }}
+        run: |
+          cd deployment/terraform
+          terraform apply -auto-approve -var="project_id=${{ secrets.GCP_PROJECT_ID }}"
