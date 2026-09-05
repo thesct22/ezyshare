@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -15,23 +16,31 @@ import (
 	"github.com/thesct22/ezyshare/backend/internal/telemetry"
 )
 
+// writeWait bounds every write to the connection. It must be set fresh
+// immediately before each write (ping or application message) rather than
+// relying on a deadline set by a previous write - net.Conn deadlines are
+// absolute wall-clock times that don't reset themselves, so a deadline left
+// over from an earlier write silently expires and fails all later writes
+// with "i/o timeout" once more than writeWait has elapsed since it was set.
+const writeWait = 10 * time.Second
+
 type wsClient struct {
-	id     string
-	conn   *websocket.Conn
-	roomID string
+	id      string
+	conn    *websocket.Conn
+	roomID  string
+	writeMu sync.Mutex
 }
 
-func (c *wsClient) ID() string {
-	return c.id
-}
+func (c *wsClient) ID() string { return c.id }
 
 func (c *wsClient) Send(msg domain.SignalMessage) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 	return c.conn.WriteJSON(msg)
 }
 
-func (c *wsClient) Close() error {
-	return c.conn.Close()
-}
+func (c *wsClient) Close() error { return c.conn.Close() }
 
 type Handler struct {
 	hub            *signaling.Hub
@@ -42,13 +51,7 @@ type Handler struct {
 }
 
 func NewHandler(hub *signaling.Hub, roomMgr *signaling.RoomManager, metrics *telemetry.Metrics, allowedOrigins []string) *Handler {
-	h := &Handler{
-		hub:            hub,
-		roomMgr:        roomMgr,
-		metrics:        metrics,
-		allowedOrigins: allowedOrigins,
-	}
-
+	h := &Handler{hub: hub, roomMgr: roomMgr, metrics: metrics, allowedOrigins: allowedOrigins}
 	h.upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -60,7 +63,6 @@ func NewHandler(hub *signaling.Hub, roomMgr *signaling.RoomManager, metrics *tel
 			return config.IsOriginAllowed(origin, h.allowedOrigins)
 		},
 	}
-
 	return h
 }
 
@@ -81,7 +83,6 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	// Heartbeat Ping/Pong setup to prune dead TCP connections
 	pingPeriod := 30 * time.Second
 	pongWait := 120 * time.Second
-	writeWait := 10 * time.Second
 
 	_ = conn.SetReadDeadline(time.Now().Add(pongWait))
 	conn.SetPongHandler(func(string) error {
@@ -92,11 +93,19 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	pingTicker := time.NewTicker(pingPeriod)
 	defer pingTicker.Stop()
 
+	var client *wsClient
+
+	// Ping goroutine – protect writes with client mutex
 	go func() {
 		for range pingTicker.C {
-			_ = conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				return
+			if client != nil {
+				client.writeMu.Lock()
+				_ = client.conn.SetWriteDeadline(time.Now().Add(writeWait))
+				if err := client.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					client.writeMu.Unlock()
+					return
+				}
+				client.writeMu.Unlock()
 			}
 		}
 	}()
@@ -104,8 +113,6 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	if h.metrics != nil {
 		h.metrics.WebSocketConnections.WithLabelValues("connected").Inc()
 	}
-
-	var client *wsClient
 
 	defer func() {
 		if client != nil {
@@ -165,11 +172,14 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 				h.hub.Register(client)
 			}
 			if client != nil && h.roomMgr != nil {
-				_, err := h.roomMgr.JoinRoom(msg.RoomID, client)
+				room, err := h.roomMgr.JoinRoom(msg.RoomID, client)
 				if err != nil {
 					_ = client.Send(domain.SignalMessage{Type: domain.TypeError, Payload: err.Error()})
 				} else {
 					client.roomID = msg.RoomID
+					if room != nil && room.HostID == client.ID() {
+						_ = client.Send(domain.SignalMessage{Type: domain.TypeRoomCreated, RoomID: room.ID, SenderID: client.ID()})
+					}
 				}
 			}
 
@@ -194,10 +204,7 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 				slog.Warn("Join attempt missing senderId")
 				continue
 			}
-			client = &wsClient{
-				id:   msg.SenderID,
-				conn: conn,
-			}
+			client = &wsClient{id: msg.SenderID, conn: conn}
 			h.hub.Register(client)
 
 		case domain.TypeLeave:
@@ -206,7 +213,11 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 
-		case domain.TypeOffer, domain.TypeAnswer, domain.TypeCandidate:
+		case domain.TypePing:
+			// Application-level keepalive; the read deadline was already
+			// refreshed above. Nothing else to do.
+
+		case domain.TypeOffer, domain.TypeAnswer, domain.TypeCandidate, domain.TypeRequestOffer:
 			if client == nil {
 				slog.Warn("Unauthenticated signaling frame received before join", "type", msg.Type)
 				continue

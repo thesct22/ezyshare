@@ -9,10 +9,13 @@ export class WebRTCManager {
   private dataChannel: RTCDataChannel | null = null;
   private reconnectTimer: number | null = null;
   private joinTimeoutTimer: number | null = null;
+  private keepaliveTimer: number | null = null;
   private pendingSignalQueue: SignalMessage[] = [];
   private pendingIceCandidates: RTCIceCandidateInit[] = [];
   private isDisposed = false;
   private authFailed = false;
+  private cachedIceServers: RTCConfiguration | null = null;
+  private fetchIceAbortController: AbortController | null = null;
   public myPeerId: string;
   public currentRoomId: string = '';
   public roomPassword: string = '';
@@ -58,7 +61,7 @@ export class WebRTCManager {
     this.onRoomCreatedCB = onRoomCreated;
   }
 
-  private getDefaultAPIUrl(): string {
+  private getApiBaseUrl(): string {
     if (import.meta.env.VITE_API_URL) {
       return import.meta.env.VITE_API_URL;
     }
@@ -76,26 +79,35 @@ export class WebRTCManager {
   }
 
   public async fetchICEServers(): Promise<RTCConfiguration> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    if (this.cachedIceServers) {
+      return this.cachedIceServers;
+    }
+
+    if (this.fetchIceAbortController) {
+      this.fetchIceAbortController.abort();
+    }
+    this.fetchIceAbortController = new AbortController();
+
     try {
-      const baseUrl = this.getDefaultAPIUrl();
-      const response = await fetch(`${baseUrl}/api/v1/ice-servers`, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      if (response.ok) {
-        const data = await response.json();
-        return { iceServers: data.iceServers };
+      const response = await fetch(`${this.getApiBaseUrl()}/api/v1/ice-servers`, {
+        signal: this.fetchIceAbortController.signal
+      });
+      const data = await response.json();
+      if (data.iceServers && data.iceServers.length > 0) {
+        this.cachedIceServers = { iceServers: data.iceServers };
+        return this.cachedIceServers;
       }
     } catch (err) {
-      clearTimeout(timeoutId);
-      console.warn('Failed to fetch custom ICE servers from backend, falling back to Google STUN:', err);
+      console.warn('Failed to fetch ICE servers from backend, falling back to public STUN', err);
     }
-    return {
+
+    this.cachedIceServers = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
       ],
     };
+    return this.cachedIceServers;
   }
 
   public connectSignaling(wsUrl?: string) {
@@ -105,6 +117,18 @@ export class WebRTCManager {
       this.reconnectTimer = null;
     }
 
+    // Close any existing WebSocket before opening a new one
+    if (this.ws) {
+      const oldWs = this.ws;
+      this.ws = null;
+      oldWs.onopen = null;
+      oldWs.onmessage = null;
+      oldWs.onerror = null;
+      oldWs.onclose = null;
+      try { oldWs.close(); } catch (_) {}
+    }
+    this.stopKeepalive();
+
     const url = wsUrl || this.getDefaultWSUrl();
     this.onStatusChangeCB?.('connecting');
 
@@ -113,12 +137,13 @@ export class WebRTCManager {
       this.ws = ws;
 
       ws.onopen = () => {
-        if (this.isDisposed) return;
+        if (this.isDisposed || this.ws !== ws) return;
         this.sendSignal({
           type: 'join',
           sender_id: this.myPeerId,
         });
         this.flushPendingSignals();
+        this.startKeepalive();
         this.onStatusChangeCB?.('signaling_ready');
         if (this.currentRoomId) {
           if (this.isHost) {
@@ -130,9 +155,14 @@ export class WebRTCManager {
       };
 
       ws.onmessage = async (event) => {
-        if (this.isDisposed) return;
+        console.log('[WebRTC] Received WebSocket message raw:', event.data);
+        if (this.isDisposed || this.ws !== ws) {
+            console.log('[WebRTC] Ignoring message because isDisposed=', this.isDisposed, 'or this.ws !== ws', this.ws !== ws);
+            return;
+        }
         try {
           const msg: SignalMessage = JSON.parse(event.data);
+          console.log('[WebRTC] Parsed message:', msg.type, msg.room_id);
           await this.handleSignalMessage(msg);
         } catch (err) {
           console.error('Failed to parse signaling message:', err);
@@ -140,13 +170,14 @@ export class WebRTCManager {
       };
 
       ws.onclose = () => {
-        if (this.isDisposed) return;
+        if (this.isDisposed || this.ws !== ws) return;
+        this.stopKeepalive();
         this.onStatusChangeCB?.('disconnected');
         this.scheduleReconnect(url);
       };
 
       ws.onerror = (err) => {
-        if (this.isDisposed) return;
+        if (this.isDisposed || this.ws !== ws) return;
         console.error('WebSocket error:', err);
         this.onStatusChangeCB?.('disconnected');
       };
@@ -207,7 +238,24 @@ export class WebRTCManager {
     }
   }
 
+  private startKeepalive() {
+    this.stopKeepalive();
+    this.keepaliveTimer = window.setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({ type: 'ping' }));
+      }
+    }, 45000);
+  }
+
+  private stopKeepalive() {
+    if (this.keepaliveTimer) {
+      window.clearInterval(this.keepaliveTimer);
+      this.keepaliveTimer = null;
+    }
+  }
+
   public createRoom(customRoomId?: string, password?: string) {
+    console.log('[WebRTC] createRoom called, current status:', this.currentRoomId, 'isDisposed:', this.isDisposed, 'ws connected:', this.ws?.readyState === WebSocket.OPEN);
     this.isHost = true;
     this.authFailed = false;
     this.roomPassword = password || '';
@@ -225,13 +273,30 @@ export class WebRTCManager {
     this.roomPassword = password || '';
     this.onStatusChangeCB?.('joining');
 
+    // Reset any stale state before a new join
     this.clearJoinTimeout();
+    this.pendingSignalQueue = [];
+    this.pendingIceCandidates = [];
+
     this.joinTimeoutTimer = window.setTimeout(() => {
       if (!this.isHost && this.currentRoomId === roomId && !this.pc) {
-        console.warn('Join room timeout: Host did not respond with WebRTC offer');
-        this.onStatusChangeCB?.('join_error');
+        console.warn('Join room timeout: Host did not respond with WebRTC offer, requesting again...');
+        this.sendSignal({
+          type: 'request_offer',
+          sender_id: this.myPeerId,
+          target_id: '', // Backend routes to room peers
+          room_id: this.currentRoomId,
+        });
+
+        // Give it another 30s before actually failing
+        this.joinTimeoutTimer = window.setTimeout(() => {
+          if (!this.isHost && this.currentRoomId === roomId && !this.pc) {
+            console.warn('Second join room timeout: Host still did not respond');
+            this.onStatusChangeCB?.('join_error');
+          }
+        }, 30000);
       }
-    }, 10000);
+    }, 30000);
 
     this.sendSignal({
       type: 'join_room',
@@ -252,6 +317,7 @@ export class WebRTCManager {
     }
     this.closePeerConnection();
     this.targetPeerId = '';
+    // Receiver simply returns to signaling ready; host stays in_room until explicit leave
     if (this.isHost && this.currentRoomId) {
       this.onStatusChangeCB?.('in_room');
     } else {
@@ -260,6 +326,7 @@ export class WebRTCManager {
   }
 
   public leaveRoom() {
+    console.log('[WebRTC] leaveRoom called, currentRoomId:', this.currentRoomId);
     this.clearJoinTimeout();
     if (this.currentRoomId) {
       this.sendSignal({
@@ -279,6 +346,8 @@ export class WebRTCManager {
   private async handleSignalMessage(msg: SignalMessage) {
     switch (msg.type) {
       case 'room_created':
+        this.clearJoinTimeout();
+        this.isHost = true;
         this.currentRoomId = msg.room_id || '';
         this.onStatusChangeCB?.('in_room');
         this.onRoomCreatedCB?.(this.currentRoomId);
@@ -291,20 +360,34 @@ export class WebRTCManager {
         }
         break;
 
+      case 'request_offer':
+        if (this.isHost) {
+          console.log('Received request_offer from', msg.sender_id, '- re‑initiating P2P connection');
+          this.targetPeerId = msg.sender_id;
+          await this.initiateP2PConnection(msg.sender_id);
+        } else {
+          console.log('request_offer ignored on receiver side');
+        }
+        break;
+
       case 'offer':
+        console.log('Received offer from', msg.sender_id);
         this.clearJoinTimeout();
         this.targetPeerId = msg.sender_id;
         await this.handleOffer(msg.sender_id, msg.payload);
         break;
 
       case 'answer':
+        console.log('Received answer');
         await this.handleAnswer(msg.payload);
         break;
 
       case 'candidate':
+        console.log('Received ICE candidate');
         await this.handleCandidate(msg.payload);
         break;
 
+      case 'remove_peer':
       case 'kicked':
         this.clearJoinTimeout();
         this.currentRoomId = '';
@@ -328,7 +411,15 @@ export class WebRTCManager {
       case 'error':
         this.clearJoinTimeout();
         console.error('Room signaling error:', msg.payload);
-        if (msg.payload && (msg.payload.includes('maximum peer capacity') || msg.payload.includes('room full') || msg.payload.includes('not found'))) {
+        if (typeof msg.payload === 'string' && msg.payload.includes('already in use') && this.isHost && this.currentRoomId) {
+          // Room still exists from before reconnect — rejoin as host instead of re-creating
+          console.warn('Room already exists after reconnect, rejoining as host:', this.currentRoomId);
+          this.sendSignal({
+            type: 'join_room',
+            sender_id: this.myPeerId,
+            room_id: this.currentRoomId,
+          });
+        } else if (msg.payload && (typeof msg.payload === 'string') && (msg.payload.includes('maximum peer capacity') || msg.payload.includes('room full') || msg.payload.includes('not found'))) {
           this.onStatusChangeCB?.('join_error');
         } else {
           this.onStatusChangeCB?.('auth_failed');
@@ -338,46 +429,79 @@ export class WebRTCManager {
   }
 
   private async initiateP2PConnection(targetPeerId: string) {
-    const config = await this.fetchICEServers();
-    this.createPeerConnection(config);
+    try {
+      const config = await this.fetchICEServers();
 
-    this.dataChannel = this.pc!.createDataChannel('fileSharingChannel', { ordered: true });
-    this.setupDataChannel(this.dataChannel);
+      // Prevent race conditions: if targetPeerId changed during fetch, abort.
+      if (this.targetPeerId !== targetPeerId) return;
 
-    const offer = await this.pc!.createOffer();
-    await this.pc!.setLocalDescription(offer);
+      this.createPeerConnection(config);
 
-    this.sendSignal({
-      type: 'offer',
-      sender_id: this.myPeerId,
-      target_id: targetPeerId,
-      room_id: this.currentRoomId,
-      payload: offer,
-    });
+      this.dataChannel = this.pc!.createDataChannel('fileSharingChannel', { ordered: true });
+      this.setupDataChannel(this.dataChannel);
+
+      const offer = await this.pc!.createOffer();
+
+      // Another check after await
+      if (this.targetPeerId !== targetPeerId || !this.pc) return;
+
+      await this.pc!.setLocalDescription(offer);
+
+      this.sendSignal({
+        type: 'offer',
+        sender_id: this.myPeerId,
+        target_id: targetPeerId,
+        room_id: this.currentRoomId,
+        payload: offer,
+      });
+    } catch (err) {
+      console.error('Failed to initiate P2P connection:', err);
+    }
   }
 
   private async handleOffer(senderId: string, offer: RTCSessionDescriptionInit) {
-    const config = await this.fetchICEServers();
-    this.createPeerConnection(config);
+    try {
+      const config = await this.fetchICEServers();
 
-    this.pc!.ondatachannel = (event) => {
-      this.dataChannel = event.channel;
-      this.setupDataChannel(this.dataChannel);
-    };
+      if (this.targetPeerId !== senderId) return;
 
-    await this.pc!.setRemoteDescription(new RTCSessionDescription(offer));
-    await this.processPendingIceCandidates();
+      this.createPeerConnection(config);
 
-    const answer = await this.pc!.createAnswer();
-    await this.pc!.setLocalDescription(answer);
+      this.pc!.ondatachannel = (event) => {
+        this.dataChannel = event.channel;
+        this.setupDataChannel(this.dataChannel);
+      };
 
-    this.sendSignal({
-      type: 'answer',
-      sender_id: this.myPeerId,
-      target_id: senderId,
-      room_id: this.currentRoomId,
-      payload: answer,
-    });
+      await this.pc!.setRemoteDescription(new RTCSessionDescription(offer));
+
+      if (this.targetPeerId !== senderId || !this.pc) return;
+
+      // Apply any queued ICE candidates that arrived before remoteDescription was set
+      for (const candidate of this.pendingIceCandidates) {
+        try {
+          await this.pc!.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+          console.error('Error adding queued ICE candidate', e);
+        }
+      }
+      this.pendingIceCandidates = [];
+
+      const answer = await this.pc!.createAnswer();
+
+      if (this.targetPeerId !== senderId || !this.pc) return;
+
+      await this.pc!.setLocalDescription(answer);
+
+      this.sendSignal({
+        type: 'answer',
+        sender_id: this.myPeerId,
+        target_id: senderId,
+        room_id: this.currentRoomId,
+        payload: answer,
+      });
+    } catch (err) {
+      console.error('Failed to handle offer:', err);
+    }
   }
 
   private async handleAnswer(answer: RTCSessionDescriptionInit) {
@@ -419,6 +543,19 @@ export class WebRTCManager {
     this.closePeerConnection();
     this.pc = new RTCPeerConnection(config);
 
+    this.pc.onconnectionstatechange = () => {
+      if (this.pc?.connectionState === 'connected') {
+        this.processPendingIceCandidates();
+      } else if (this.pc?.connectionState === 'disconnected' || this.pc?.connectionState === 'failed') {
+        this.onStatusChangeCB?.(this.isHost ? 'in_room' : 'signaling_ready');
+        this.closePeerConnection();
+        if (!this.isHost) {
+          this.currentRoomId = '';
+        }
+        this.targetPeerId = '';
+      }
+    };
+
     this.pc.onicecandidate = (event) => {
       if (event.candidate && this.targetPeerId) {
         this.sendSignal({
@@ -449,7 +586,7 @@ export class WebRTCManager {
 
     channel.onclose = () => {
       if (!this.authFailed) {
-        this.onStatusChangeCB?.('in_room');
+        this.onStatusChangeCB?.(this.isHost ? 'in_room' : 'signaling_ready');
       }
     };
   }
@@ -681,11 +818,13 @@ export class WebRTCManager {
     if (this.pc) {
       this.pc.close();
       this.pc = null;
+      // Preserve isHost flag for the host (only cleared on explicit leave)
     }
   }
 
   public disconnectAll() {
     this.isDisposed = true;
+    this.stopKeepalive();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;

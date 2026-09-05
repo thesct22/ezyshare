@@ -42,6 +42,10 @@ export const App: React.FC = () => {
     );
 
     rtc.connectSignaling();
+
+    return () => {
+      rtc.disconnectAll();
+    };
   }, []);
 
   const handleCreateRoom = (customRoomId?: string, password?: string) => {
@@ -146,6 +150,7 @@ export const App: React.FC = () => {
             onLeaveRoom={handleLeaveRoom}
             onRemovePeer={handleRemovePeer}
             status={status}
+            isHost={isHost}
           />
 
           {/* Host File Upload Dropzone */}

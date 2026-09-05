@@ -9,7 +9,7 @@ services:
     environment:
       - APP_ENV=dev
       - PORT=8080
-      - ALLOWED_ORIGINS=http://localhost,http://127.0.0.1,http://localhost:8080,https://sharath.is-a.dev
+      - ALLOWED_ORIGINS=http://localhost,http://127.0.0.1,http://localhost:8080,http://localhost:5173,https://sharath.is-a.dev
       # - TURN_SERVER_URL=turn:your-turn-server.com:3478
       # - TURN_SECRET=your_turn_secret
     ports:

@@ -4,20 +4,22 @@ package domain
 type MessageType string
 
 const (
-	TypeJoin        MessageType = "join"
-	TypeLeave       MessageType = "leave"
-	TypeOffer       MessageType = "offer"
-	TypeAnswer      MessageType = "answer"
-	TypeCandidate   MessageType = "candidate"
-	TypeCreateRoom  MessageType = "create_room"
-	TypeJoinRoom    MessageType = "join_room"
-	TypeLeaveRoom   MessageType = "leave_room"
-	TypePeerJoined  MessageType = "peer_joined"
-	TypePeerLeft    MessageType = "peer_left"
-	TypeRoomCreated MessageType = "room_created"
-	TypeRemovePeer  MessageType = "remove_peer"
-	TypeKicked      MessageType = "kicked"
-	TypeError       MessageType = "error"
+	TypeJoin         MessageType = "join"
+	TypeLeave        MessageType = "leave"
+	TypeOffer        MessageType = "offer"
+	TypeAnswer       MessageType = "answer"
+	TypeCandidate    MessageType = "candidate"
+	TypeCreateRoom   MessageType = "create_room"
+	TypeJoinRoom     MessageType = "join_room"
+	TypeLeaveRoom    MessageType = "leave_room"
+	TypePeerJoined   MessageType = "peer_joined"
+	TypePeerLeft     MessageType = "peer_left"
+	TypeRoomCreated  MessageType = "room_created"
+	TypeRemovePeer   MessageType = "remove_peer"
+	TypeKicked       MessageType = "kicked"
+	TypeError        MessageType = "error"
+	TypeRequestOffer MessageType = "request_offer"
+	TypePing         MessageType = "ping"
 )
 
 // SignalMessage is the struct representing JSON payloads exchanged over WebSockets.

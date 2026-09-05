@@ -99,6 +99,13 @@ func (rm *RoomManager) JoinRoom(roomID string, client domain.Client) (*domain.Ro
 	room.AddPeer(client)
 	slog.Info("Peer joined room", "room_id", roomID, "peer_id", client.ID())
 
+	// If the host is rejoining (e.g. after WebSocket reconnect), update the
+	// stored client reference so future broadcasts reach the live connection
+	// instead of the stale/dead one. AddPeer already replaced the client ref.
+	if client.ID() == room.HostID {
+		slog.Info("Host rejoined room with fresh connection", "room_id", roomID, "host_id", client.ID())
+	}
+
 	// Notify existing peers
 	room.Broadcast(domain.SignalMessage{
 		Type:     domain.TypePeerJoined,

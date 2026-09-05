@@ -37,6 +37,7 @@ interface RoomCardProps {
   onLeaveRoom: () => void;
   onRemovePeer?: () => void;
   status: ConnectionStatus;
+  isHost: boolean;
 }
 
 export const RoomCard: React.FC<RoomCardProps> = ({
@@ -46,6 +47,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   onLeaveRoom,
   onRemovePeer,
   status,
+  isHost,
 }) => {
   const [tabIndex, setTabIndex] = useState(0);
   const [customIDInput, setCustomIDInput] = useState('');
@@ -178,7 +180,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                 {status === 'in_room' || status === 'p2p_connected' ? 'Room Active' : 'Create Room'}
               </Button>
 
-              {(status === 'in_room' || status === 'p2p_connected') && tabIndex === 0 && onRemovePeer && (
+              {status === 'p2p_connected' && isHost && onRemovePeer && (
                 <Button
                   variant="outlined"
                   color="warning"
@@ -326,7 +328,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
 
             {status === 'join_error' && (
               <Alert severity="error" sx={{ borderRadius: 3, mt: 2 }}>
-                Join Failed: The room has reached maximum capacity or does not exist.
+                Join Failed: The room has reached maximum capacity or the connection timed out.
               </Alert>
             )}
           </form>

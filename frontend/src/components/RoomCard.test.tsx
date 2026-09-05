@@ -10,6 +10,7 @@ describe('RoomCard Component', () => {
     onJoinRoom: vi.fn(),
     onLeaveRoom: vi.fn(),
     status: 'disconnected' as const,
+    isHost: false,
   };
 
   it('renders Create Room tab by default', () => {
@@ -67,13 +68,14 @@ describe('RoomCard Component', () => {
     expect(onLeaveRoom).toHaveBeenCalledTimes(1);
   });
 
-  it('displays Remove Connected Peer button when host is in room and calls onRemovePeer', () => {
+  it('displays Remove Connected Peer button when host has a peer connected and calls onRemovePeer', () => {
     const onRemovePeer = vi.fn();
     render(
       <RoomCard
         {...defaultProps}
         currentRoomId="active-room"
-        status="in_room"
+        status="p2p_connected"
+        isHost={true}
         onRemovePeer={onRemovePeer}
       />
     );

@@ -37,3 +37,4 @@ backend/*.exe
 # Pre-commit & Tooling Caches
 .pre-commit-config.yaml.cache
 .cache/
+graphify-out/
