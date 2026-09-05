@@ -32,6 +32,17 @@ resource "google_cloud_run_v2_service" "backend" {
   template {
     service_account = local.runtime_sa_email
 
+    # RoomManager keeps all room/peer state in an in-process Go map with no
+    # shared backing store. Cloud Run gives no guarantee that two different
+    # clients' WebSocket connections land on the same instance, so allowing
+    # more than one instance means a room created on instance A is invisible
+    # to a peer routed to instance B ("room not found"). Pin to exactly one
+    # instance until room state is moved to a shared store (see
+    # docs/superpowers/plans/2026-09-06-horizontal-scaling-plan.md).
+    scaling {
+      max_instance_count = 1
+    }
+
     containers {
       image = "gcr.io/cloudrun/hello" # Starter placeholder so initial terraform apply succeeds before docker push
       ports {
