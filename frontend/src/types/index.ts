@@ -12,9 +12,7 @@ export type MessageType =
   | 'room_created'
   | 'remove_peer'
   | 'kicked'
-  | 'error'
-  | 'request_offer'
-  | 'ping';
+  | 'error';
 
 export interface SignalMessage {
   type: MessageType;

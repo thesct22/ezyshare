@@ -9,7 +9,6 @@ export class WebRTCManager {
   private dataChannel: RTCDataChannel | null = null;
   private reconnectTimer: number | null = null;
   private joinTimeoutTimer: number | null = null;
-  private keepaliveTimer: number | null = null;
   private pendingSignalQueue: SignalMessage[] = [];
   private pendingIceCandidates: RTCIceCandidateInit[] = [];
   private isDisposed = false;
@@ -119,15 +118,9 @@ export class WebRTCManager {
 
     // Close any existing WebSocket before opening a new one
     if (this.ws) {
-      const oldWs = this.ws;
+      this.teardownSocket(this.ws);
       this.ws = null;
-      oldWs.onopen = null;
-      oldWs.onmessage = null;
-      oldWs.onerror = null;
-      oldWs.onclose = null;
-      try { oldWs.close(); } catch (_) {}
     }
-    this.stopKeepalive();
 
     const url = wsUrl || this.getDefaultWSUrl();
     this.onStatusChangeCB?.('connecting');
@@ -143,7 +136,6 @@ export class WebRTCManager {
           sender_id: this.myPeerId,
         });
         this.flushPendingSignals();
-        this.startKeepalive();
         this.onStatusChangeCB?.('signaling_ready');
         if (this.currentRoomId) {
           if (this.isHost) {
@@ -155,14 +147,9 @@ export class WebRTCManager {
       };
 
       ws.onmessage = async (event) => {
-        console.log('[WebRTC] Received WebSocket message raw:', event.data);
-        if (this.isDisposed || this.ws !== ws) {
-            console.log('[WebRTC] Ignoring message because isDisposed=', this.isDisposed, 'or this.ws !== ws', this.ws !== ws);
-            return;
-        }
+        if (this.isDisposed || this.ws !== ws) return;
         try {
           const msg: SignalMessage = JSON.parse(event.data);
-          console.log('[WebRTC] Parsed message:', msg.type, msg.room_id);
           await this.handleSignalMessage(msg);
         } catch (err) {
           console.error('Failed to parse signaling message:', err);
@@ -171,7 +158,6 @@ export class WebRTCManager {
 
       ws.onclose = () => {
         if (this.isDisposed || this.ws !== ws) return;
-        this.stopKeepalive();
         this.onStatusChangeCB?.('disconnected');
         this.scheduleReconnect(url);
       };
@@ -238,24 +224,28 @@ export class WebRTCManager {
     }
   }
 
-  private startKeepalive() {
-    this.stopKeepalive();
-    this.keepaliveTimer = window.setInterval(() => {
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        this.ws.send(JSON.stringify({ type: 'ping' }));
-      }
-    }, 45000);
-  }
+  // Detaches handlers and closes the socket. A still-CONNECTING socket
+  // defers close() until it opens (closing mid-handshake logs a spurious
+  // error under React StrictMode's dev double-invoke).
+  private teardownSocket(socket: WebSocket) {
+    socket.onopen = null;
+    socket.onmessage = null;
+    socket.onerror = null;
+    socket.onclose = null;
 
-  private stopKeepalive() {
-    if (this.keepaliveTimer) {
-      window.clearInterval(this.keepaliveTimer);
-      this.keepaliveTimer = null;
+    if (socket.readyState === WebSocket.CONNECTING) {
+      socket.onopen = () => socket.close();
+      socket.onerror = () => {};
+    } else {
+      try {
+        socket.close();
+      } catch (_) {
+        // socket already closed/closing
+      }
     }
   }
 
   public createRoom(customRoomId?: string, password?: string) {
-    console.log('[WebRTC] createRoom called, current status:', this.currentRoomId, 'isDisposed:', this.isDisposed, 'ws connected:', this.ws?.readyState === WebSocket.OPEN);
     this.isHost = true;
     this.authFailed = false;
     this.roomPassword = password || '';
@@ -280,21 +270,8 @@ export class WebRTCManager {
 
     this.joinTimeoutTimer = window.setTimeout(() => {
       if (!this.isHost && this.currentRoomId === roomId && !this.pc) {
-        console.warn('Join room timeout: Host did not respond with WebRTC offer, requesting again...');
-        this.sendSignal({
-          type: 'request_offer',
-          sender_id: this.myPeerId,
-          target_id: '', // Backend routes to room peers
-          room_id: this.currentRoomId,
-        });
-
-        // Give it another 30s before actually failing
-        this.joinTimeoutTimer = window.setTimeout(() => {
-          if (!this.isHost && this.currentRoomId === roomId && !this.pc) {
-            console.warn('Second join room timeout: Host still did not respond');
-            this.onStatusChangeCB?.('join_error');
-          }
-        }, 30000);
+        console.warn('Join room timeout: host did not respond with a WebRTC offer');
+        this.onStatusChangeCB?.('join_error');
       }
     }, 30000);
 
@@ -326,7 +303,6 @@ export class WebRTCManager {
   }
 
   public leaveRoom() {
-    console.log('[WebRTC] leaveRoom called, currentRoomId:', this.currentRoomId);
     this.clearJoinTimeout();
     if (this.currentRoomId) {
       this.sendSignal({
@@ -360,30 +336,17 @@ export class WebRTCManager {
         }
         break;
 
-      case 'request_offer':
-        if (this.isHost) {
-          console.log('Received request_offer from', msg.sender_id, '- re‑initiating P2P connection');
-          this.targetPeerId = msg.sender_id;
-          await this.initiateP2PConnection(msg.sender_id);
-        } else {
-          console.log('request_offer ignored on receiver side');
-        }
-        break;
-
       case 'offer':
-        console.log('Received offer from', msg.sender_id);
         this.clearJoinTimeout();
         this.targetPeerId = msg.sender_id;
         await this.handleOffer(msg.sender_id, msg.payload);
         break;
 
       case 'answer':
-        console.log('Received answer');
         await this.handleAnswer(msg.payload);
         break;
 
       case 'candidate':
-        console.log('Received ICE candidate');
         await this.handleCandidate(msg.payload);
         break;
 
@@ -476,15 +439,8 @@ export class WebRTCManager {
 
       if (this.targetPeerId !== senderId || !this.pc) return;
 
-      // Apply any queued ICE candidates that arrived before remoteDescription was set
-      for (const candidate of this.pendingIceCandidates) {
-        try {
-          await this.pc!.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (e) {
-          console.error('Error adding queued ICE candidate', e);
-        }
-      }
-      this.pendingIceCandidates = [];
+      // Apply any ICE candidates that arrived before remoteDescription was set
+      await this.processPendingIceCandidates();
 
       const answer = await this.pc!.createAnswer();
 
@@ -824,7 +780,6 @@ export class WebRTCManager {
 
   public disconnectAll() {
     this.isDisposed = true;
-    this.stopKeepalive();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -832,26 +787,8 @@ export class WebRTCManager {
     this.closePeerConnection();
 
     if (this.ws) {
-      const socket = this.ws;
+      this.teardownSocket(this.ws);
       this.ws = null;
-
-      // Detach event listeners so React StrictMode double-unmount in DEV mode doesn't log errors
-      socket.onopen = null;
-      socket.onmessage = null;
-      socket.onerror = null;
-      socket.onclose = null;
-
-      if (socket.readyState === WebSocket.CONNECTING) {
-        socket.onopen = () => {
-          socket.close();
-        };
-        // Also catch errors so they don't bubble up unnecessarily
-        socket.onerror = () => {};
-      } else {
-        try {
-          socket.close();
-        } catch (_) {}
-      }
     }
   }
 }

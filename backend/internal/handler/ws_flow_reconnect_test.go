@@ -2,42 +2,21 @@ package handler_test
 
 import (
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/gorilla/websocket"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/thesct22/ezyshare/backend/internal/domain"
-	"github.com/thesct22/ezyshare/backend/internal/handler"
-	"github.com/thesct22/ezyshare/backend/internal/signaling"
-	"github.com/thesct22/ezyshare/backend/internal/telemetry"
 )
 
 func TestFullFlowRepeatedCycles(t *testing.T) {
-	// Setup server
-	reg := prometheus.NewRegistry()
-	metrics := telemetry.NewMetrics(reg)
-	hub := signaling.NewHub(metrics)
-	go hub.Start()
-	defer hub.Stop()
-
-	roomMgr := signaling.NewRoomManager(metrics)
-	wsHandler := handler.NewHandler(hub, roomMgr, metrics, []string{"*"})
-	ts := httptest.NewServer(http.HandlerFunc(wsHandler.ServeWS))
+	ts, hub, metrics := setupTestServer()
 	defer ts.Close()
-
-	dial := func() (*websocket.Conn, error) {
-		wsURL := "ws" + ts.URL[4:]
-		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
-		return conn, err
-	}
+	defer hub.Stop()
 
 	for i := 0; i < 3; i++ {
 		// Client A creates room
-		a, err := dial()
+		a, err := dialWS(ts.URL)
 		if err != nil {
 			t.Fatalf("cycle %d: dial A failed: %v", i, err)
 		}
@@ -56,7 +35,7 @@ func TestFullFlowRepeatedCycles(t *testing.T) {
 			t.Fatalf("cycle %d: A received wrong ack: %+v", i, recvCreated)
 		}
 		// Client B joins
-		b, err := dial()
+		b, err := dialWS(ts.URL)
 		if err != nil {
 			t.Fatalf("cycle %d: dial B failed: %v", i, err)
 		}

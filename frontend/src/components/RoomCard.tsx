@@ -56,13 +56,6 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   const [usePassword, setUsePassword] = useState(false);
   const [copied, setCopied] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
-  const [isJoining, setIsJoining] = useState(false);
-
-  useEffect(() => {
-    if (status !== 'joining') {
-      setIsJoining(false);
-    }
-  }, [status]);
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -82,8 +75,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
 
   const handleJoinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (joinRoomIDInput.trim() && !isJoining && status !== 'joining') {
-      setIsJoining(true);
+    if (joinRoomIDInput.trim() && status !== 'joining') {
       onJoinRoom(joinRoomIDInput.trim(), passwordInput.trim() || undefined);
     }
   };
@@ -272,7 +264,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                 placeholder="e.g. my-awesome-room or room-x89f2a"
                 value={joinRoomIDInput}
                 onChange={(e) => setJoinRoomIDInput(e.target.value)}
-                disabled={status === 'p2p_connected' || status === 'joining' || isJoining}
+                disabled={status === 'p2p_connected' || status === 'joining'}
                 required
               />
 
@@ -283,20 +275,20 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                 placeholder="Enter password"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
-                disabled={status === 'p2p_connected' || status === 'joining' || isJoining}
+                disabled={status === 'p2p_connected' || status === 'joining'}
               />
 
               <Button
                 type="submit"
                 variant="contained"
                 size="large"
-                disabled={!joinRoomIDInput.trim() || status === 'p2p_connected' || status === 'authenticating' || status === 'joining' || isJoining}
-                endIcon={isJoining || status === 'joining' ? <CircularProgress size={20} color="inherit" /> : <ArrowForwardIcon />}
+                disabled={!joinRoomIDInput.trim() || status === 'p2p_connected' || status === 'authenticating' || status === 'joining'}
+                endIcon={status === 'joining' ? <CircularProgress size={20} color="inherit" /> : <ArrowForwardIcon />}
                 sx={{ minWidth: 160 }}
               >
                 {status === 'p2p_connected'
                   ? 'Connected'
-                  : isJoining || status === 'joining'
+                  : status === 'joining'
                   ? 'Joining...'
                   : 'Join Room'}
               </Button>

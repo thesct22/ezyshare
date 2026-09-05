@@ -87,22 +87,13 @@ describe('RoomCard Component', () => {
     expect(onRemovePeer).toHaveBeenCalledTimes(1);
   });
 
-  it('immediately disables Join Room button when submitted', () => {
-    const onJoinRoom = vi.fn();
-    render(<RoomCard {...defaultProps} onJoinRoom={onJoinRoom} />);
+  it('disables the Join Room form and shows a spinner while status is joining', () => {
+    render(<RoomCard {...defaultProps} status="joining" />);
 
-    const joinTab = screen.getByText('Join Existing Room');
-    fireEvent.click(joinTab);
-
-    const input = screen.getByLabelText(/room id/i);
-    fireEvent.change(input, { target: { value: 'target-room-789' } });
-
-    const joinBtn = screen.getByRole('button', { name: /join room/i });
-    expect(joinBtn).not.toBeDisabled();
-
-    fireEvent.click(joinBtn);
+    fireEvent.click(screen.getByText('Join Existing Room'));
 
     const joiningBtn = screen.getByRole('button', { name: /joining/i });
     expect(joiningBtn).toBeDisabled();
+    expect(screen.getByLabelText(/room id/i)).toBeDisabled();
   });
 });

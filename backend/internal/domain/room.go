@@ -46,11 +46,14 @@ func (r *Room) PeerCount() int {
 	return len(r.Peers)
 }
 
-func (r *Room) HasPeer(clientID string) bool {
+// JoinState reports the peer count and whether clientID already holds a
+// slot, read together under one lock instead of two separate calls to
+// PeerCount and HasPeer.
+func (r *Room) JoinState(clientID string) (peerCount int, hasPeer bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	_, exists := r.Peers[clientID]
-	return exists
+	_, hasPeer = r.Peers[clientID]
+	return len(r.Peers), hasPeer
 }
 
 func (r *Room) Broadcast(msg SignalMessage, excludeClientID string) {

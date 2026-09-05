@@ -33,11 +33,18 @@ type wsClient struct {
 
 func (c *wsClient) ID() string { return c.id }
 
-func (c *wsClient) Send(msg domain.SignalMessage) error {
+// write serializes a raw write against writeMu and gives it a fresh
+// deadline, shared by Send (JSON application messages) and the ping
+// goroutine (WebSocket control frames).
+func (c *wsClient) write(fn func() error) error {
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
 	_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-	return c.conn.WriteJSON(msg)
+	return fn()
+}
+
+func (c *wsClient) Send(msg domain.SignalMessage) error {
+	return c.write(func() error { return c.conn.WriteJSON(msg) })
 }
 
 func (c *wsClient) Close() error { return c.conn.Close() }
@@ -95,17 +102,16 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 
 	var client *wsClient
 
-	// Ping goroutine – protect writes with client mutex
 	go func() {
 		for range pingTicker.C {
-			if client != nil {
-				client.writeMu.Lock()
-				_ = client.conn.SetWriteDeadline(time.Now().Add(writeWait))
-				if err := client.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-					client.writeMu.Unlock()
-					return
-				}
-				client.writeMu.Unlock()
+			if client == nil {
+				continue
+			}
+			err := client.write(func() error {
+				return client.conn.WriteMessage(websocket.PingMessage, nil)
+			})
+			if err != nil {
+				return
 			}
 		}
 	}()
@@ -213,11 +219,7 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 
-		case domain.TypePing:
-			// Application-level keepalive; the read deadline was already
-			// refreshed above. Nothing else to do.
-
-		case domain.TypeOffer, domain.TypeAnswer, domain.TypeCandidate, domain.TypeRequestOffer:
+		case domain.TypeOffer, domain.TypeAnswer, domain.TypeCandidate:
 			if client == nil {
 				slog.Warn("Unauthenticated signaling frame received before join", "type", msg.Type)
 				continue

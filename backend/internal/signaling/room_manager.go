@@ -78,33 +78,28 @@ func (rm *RoomManager) CreateRoom(customID, hostID string) (*domain.Room, error)
 }
 
 func (rm *RoomManager) JoinRoom(roomID string, client domain.Client) (*domain.Room, error) {
-	rm.mu.Lock()
+	rm.mu.RLock()
 	room, exists := rm.rooms[roomID]
-	rm.mu.Unlock()
+	rm.mu.RUnlock()
 
 	if !exists {
 		return nil, ErrRoomNotFound
 	}
 
+	peerCount, hasPeer := room.JoinState(client.ID())
+
 	// Check if host is present in the room (or if client joining is the host)
-	if room.PeerCount() == 0 && client.ID() != room.HostID {
+	if peerCount == 0 && client.ID() != room.HostID {
 		return nil, ErrRoomNotFound
 	}
 
 	// Idempotent join check: allow re-joining if peer is already in room
-	if !room.HasPeer(client.ID()) && room.PeerCount() >= MaxPeersPerRoom {
+	if !hasPeer && peerCount >= MaxPeersPerRoom {
 		return nil, ErrRoomFull
 	}
 
 	room.AddPeer(client)
 	slog.Info("Peer joined room", "room_id", roomID, "peer_id", client.ID())
-
-	// If the host is rejoining (e.g. after WebSocket reconnect), update the
-	// stored client reference so future broadcasts reach the live connection
-	// instead of the stale/dead one. AddPeer already replaced the client ref.
-	if client.ID() == room.HostID {
-		slog.Info("Host rejoined room with fresh connection", "room_id", roomID, "host_id", client.ID())
-	}
 
 	// Notify existing peers
 	room.Broadcast(domain.SignalMessage{
@@ -117,9 +112,9 @@ func (rm *RoomManager) JoinRoom(roomID string, client domain.Client) (*domain.Ro
 }
 
 func (rm *RoomManager) KickPeer(roomID, requesterID, targetID string) error {
-	rm.mu.Lock()
+	rm.mu.RLock()
 	room, exists := rm.rooms[roomID]
-	rm.mu.Unlock()
+	rm.mu.RUnlock()
 
 	if !exists {
 		return ErrRoomNotFound
@@ -147,7 +142,6 @@ func (rm *RoomManager) KickPeer(roomID, requesterID, targetID string) error {
 	}, targetID)
 
 	if room.PeerCount() == 0 {
-		room.LastActive = time.Now()
 		slog.Info("Room is now empty after kick", "room_id", roomID)
 	}
 
@@ -155,9 +149,9 @@ func (rm *RoomManager) KickPeer(roomID, requesterID, targetID string) error {
 }
 
 func (rm *RoomManager) LeaveRoom(roomID string, clientID string) {
-	rm.mu.Lock()
+	rm.mu.RLock()
 	room, exists := rm.rooms[roomID]
-	rm.mu.Unlock()
+	rm.mu.RUnlock()
 
 	if !exists {
 		return
@@ -173,7 +167,6 @@ func (rm *RoomManager) LeaveRoom(roomID string, clientID string) {
 	}, clientID)
 
 	if room.PeerCount() == 0 {
-		room.LastActive = time.Now()
 		slog.Info("Room is now empty", "room_id", roomID)
 	}
 }

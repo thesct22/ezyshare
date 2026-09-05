@@ -2,42 +2,21 @@ package handler_test
 
 import (
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/gorilla/websocket"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/thesct22/ezyshare/backend/internal/domain"
-	"github.com/thesct22/ezyshare/backend/internal/handler"
-	"github.com/thesct22/ezyshare/backend/internal/signaling"
-	"github.com/thesct22/ezyshare/backend/internal/telemetry"
 )
 
 func TestRepeatedJoinLeaveCycles(t *testing.T) {
-	// Setup server and metrics
-	reg := prometheus.NewRegistry()
-	metrics := telemetry.NewMetrics(reg)
-	hub := signaling.NewHub(metrics)
-	go hub.Start()
-	defer hub.Stop()
-
-	roomMgr := signaling.NewRoomManager(metrics)
-	wsHandler := handler.NewHandler(hub, roomMgr, metrics, []string{"*"})
-	ts := httptest.NewServer(http.HandlerFunc(wsHandler.ServeWS))
+	ts, hub, metrics := setupTestServer()
 	defer ts.Close()
-
-	dial := func() (*websocket.Conn, error) {
-		wsURL := "ws" + ts.URL[4:]
-		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
-		return conn, err
-	}
+	defer hub.Stop()
 
 	for i := 0; i < 5; i++ {
 		// Client A creates a room and then leaves
-		connA, err := dial()
+		connA, err := dialWS(ts.URL)
 		if err != nil {
 			t.Fatalf("cycle %d: failed to dial A: %v", i, err)
 		}
@@ -74,24 +53,11 @@ func TestBroadcastSurvivesPastPingWriteDeadline(t *testing.T) {
 		t.Skip("spans a real 30s+ ping interval; skipped with -short")
 	}
 
-	reg := prometheus.NewRegistry()
-	metrics := telemetry.NewMetrics(reg)
-	hub := signaling.NewHub(metrics)
-	go hub.Start()
+	ts, hub, _ := setupTestServer()
+	defer ts.Close()
 	defer hub.Stop()
 
-	roomMgr := signaling.NewRoomManager(metrics)
-	wsHandler := handler.NewHandler(hub, roomMgr, metrics, []string{"*"})
-	ts := httptest.NewServer(http.HandlerFunc(wsHandler.ServeWS))
-	defer ts.Close()
-
-	dial := func() (*websocket.Conn, error) {
-		wsURL := "ws" + ts.URL[4:]
-		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
-		return conn, err
-	}
-
-	host, err := dial()
+	host, err := dialWS(ts.URL)
 	if err != nil {
 		t.Fatalf("failed to dial host: %v", err)
 	}
@@ -113,7 +79,7 @@ func TestBroadcastSurvivesPastPingWriteDeadline(t *testing.T) {
 	// already expired by the time the peer joins below.
 	time.Sleep(41 * time.Second)
 
-	peer, err := dial()
+	peer, err := dialWS(ts.URL)
 	if err != nil {
 		t.Fatalf("failed to dial peer: %v", err)
 	}
